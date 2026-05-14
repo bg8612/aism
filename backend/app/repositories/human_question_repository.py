@@ -1,11 +1,20 @@
 from __future__ import annotations
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.human_question import HumanQuestion
 
 
 class HumanQuestionRepository:
+    async def list_by_bot_id(self, session: AsyncSession, *, bot_id: int) -> list[HumanQuestion]:
+        result = await session.scalars(
+            select(HumanQuestion)
+            .where(HumanQuestion.bot_id == bot_id)
+            .order_by(HumanQuestion.created_at.desc(), HumanQuestion.id.desc())
+        )
+        return list(result.all())
+
     async def create_human_question(
         self,
         session: AsyncSession,

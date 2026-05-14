@@ -6,11 +6,15 @@ from app.core.config import settings
 
 
 class TelegramClient:
+    def __init__(self, bot_token: str | None = None) -> None:
+        self._bot_token = bot_token
+
     @property
     def _base_url(self) -> str:
-        if not settings.telegram_bot_token:
+        token = self._bot_token or settings.telegram_bot_token
+        if not token:
             raise RuntimeError("TELEGRAM_BOT_TOKEN is not configured")
-        return f"https://api.telegram.org/bot{settings.telegram_bot_token}"
+        return f"https://api.telegram.org/bot{token}"
 
     async def send_message(
         self,

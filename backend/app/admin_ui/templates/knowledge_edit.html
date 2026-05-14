@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card"><a class="btn btn-secondary" href="/admin/bots/{{ bot.id }}">Назад к боту</a></div>
+<div class="card">
+  <h1>База знаний: {{ bot.name }}</h1>
+  <form method="post" action="/admin/bots/{{ bot.id }}/knowledge">
+    <label>Категория</label>
+    <select name="category">
+      <option>company_info</option><option>services</option><option>prices</option><option>doctors</option><option>address</option>
+      <option>schedule</option><option>faq</option><option>limitations</option><option>contacts</option><option>rules</option>
+    </select>
+    <label>Title</label><input name="title" required>
+    <label>Content</label><textarea name="content" required></textarea>
+    <button type="submit">Добавить блок</button>
+  </form>
+</div>
+<div class="card">
+  <table><thead><tr><th>ID</th><th>Category</th><th>Title</th><th>Active</th><th></th></tr></thead><tbody>
+    {% for item in items %}
+    <tr>
+      <td>{{ item.id }}</td><td>{{ item.category }}</td><td>{{ item.title }}</td><td>{{ item.is_active }}</td>
+      <td>
+        {% if item.is_active %}
+        <form method="post" action="/admin/knowledge/{{ item.id }}/disable"><button type="submit">Отключить</button></form>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody></table>
+</div>
+{% endblock %}

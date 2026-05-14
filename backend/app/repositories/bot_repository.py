@@ -7,6 +7,10 @@ from app.models.bot import Bot
 
 
 class BotRepository:
+    async def list_bots(self, session: AsyncSession) -> list[Bot]:
+        result = await session.scalars(select(Bot).order_by(Bot.created_at.desc(), Bot.id.desc()))
+        return list(result.all())
+
     async def get_by_id(
         self,
         session: AsyncSession,
@@ -15,6 +19,46 @@ class BotRepository:
     ) -> Bot | None:
         statement = select(Bot).where(Bot.id == bot_id).limit(1)
         return await session.scalar(statement)
+
+    async def create_bot(
+        self,
+        session: AsyncSession,
+        *,
+        name: str,
+        telegram_bot_username: str | None,
+        client_id: int | None = None,
+        is_active: bool = True,
+    ) -> Bot:
+        bot = Bot(
+            name=name,
+            telegram_bot_username=telegram_bot_username,
+            client_id=client_id,
+            is_active=is_active,
+        )
+        session.add(bot)
+        await session.flush()
+        return bot
+
+    async def update_bot(
+        self,
+        session: AsyncSession,
+        *,
+        bot: Bot,
+        name: str | None = None,
+        telegram_bot_username: str | None = None,
+        client_id: int | None = None,
+        is_active: bool | None = None,
+    ) -> Bot:
+        if name is not None:
+            bot.name = name
+        if telegram_bot_username is not None:
+            bot.telegram_bot_username = telegram_bot_username
+        if client_id is not None:
+            bot.client_id = client_id
+        if is_active is not None:
+            bot.is_active = is_active
+        await session.flush()
+        return bot
 
     async def get_or_create_telegram_bot(
         self,

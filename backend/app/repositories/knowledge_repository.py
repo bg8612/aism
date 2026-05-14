@@ -50,6 +50,50 @@ class KnowledgeRepository:
         scored_blocks.sort(key=lambda item: item[0], reverse=True)
         return [block for _, block in scored_blocks[:limit]]
 
+    async def list_by_bot_id(self, session: AsyncSession, *, bot_id: int) -> list[KnowledgeBlock]:
+        result = await session.scalars(
+            select(KnowledgeBlock).where(KnowledgeBlock.bot_id == bot_id).order_by(KnowledgeBlock.created_at.desc())
+        )
+        return list(result.all())
+
+    async def get_by_id(self, session: AsyncSession, *, block_id: int) -> KnowledgeBlock | None:
+        return await session.get(KnowledgeBlock, block_id)
+
+    async def create(
+        self,
+        session: AsyncSession,
+        *,
+        bot_id: int,
+        category: str,
+        title: str,
+        content: str,
+        is_active: bool = True,
+    ) -> KnowledgeBlock:
+        block = KnowledgeBlock(
+            bot_id=bot_id,
+            category=category,
+            title=title,
+            content=content,
+            is_active=is_active,
+        )
+        session.add(block)
+        await session.flush()
+        return block
+
+    async def update(self, session: AsyncSession, *, block: KnowledgeBlock, **values: object) -> KnowledgeBlock:
+        for key, value in values.items():
+            if value is None:
+                continue
+            if hasattr(block, key):
+                setattr(block, key, value)
+        await session.flush()
+        return block
+
+    async def deactivate(self, session: AsyncSession, *, block: KnowledgeBlock) -> KnowledgeBlock:
+        block.is_active = False
+        await session.flush()
+        return block
+
     def _active_statement(self, *, bot_id: int) -> Select[tuple[KnowledgeBlock]]:
         return (
             select(KnowledgeBlock)

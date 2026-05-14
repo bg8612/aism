@@ -11,6 +11,16 @@ from app.models.lead_field_value import LeadFieldValue
 
 
 class LeadRepository:
+    async def list_by_bot_id(self, session: AsyncSession, *, bot_id: int) -> list[Lead]:
+        statement = (
+            select(Lead)
+            .options(selectinload(Lead.field_values))
+            .where(Lead.bot_id == bot_id)
+            .order_by(Lead.created_at.desc(), Lead.id.desc())
+        )
+        result = await session.scalars(statement)
+        return list(result.all())
+
     async def get_active_draft_by_conversation_id(
         self,
         session: AsyncSession,

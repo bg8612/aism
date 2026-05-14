@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h1>Новый бот</h1>
+  <form method="post" action="/admin/bots/new">
+    <label>Название</label><input name="name" required>
+    <label>Telegram username</label><input name="telegram_username">
+    <label>Telegram token</label><input name="telegram_token">
+    <button type="submit">Создать</button>
+  </form>
+  <a class="btn btn-secondary" href="/admin/bots">Назад</a>
+</div>
+{% endblock %}

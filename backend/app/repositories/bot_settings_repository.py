@@ -25,8 +25,7 @@ class BotSettingsRepository:
             allowed_topics="услуги, цены, запись, адрес, график работы, контакты",
             forbidden_topics="домашние задания, программирование, политика, развлечения, личные советы",
             offtopic_message=(
-                "Я могу помочь только по вопросам бизнеса: услугам, ценам, записи, адресу, "
-                "графику работы и контактам."
+                "Я могу помочь только по вопросам бизнеса: услугам, ценам, записи, адресу, графику работы и контактам."
             ),
             fallback_message=(
                 "У меня нет точной информации по этому вопросу. Я могу зафиксировать вопрос для менеджера."
@@ -46,3 +45,12 @@ class BotSettingsRepository:
         if settings is not None:
             return settings
         return await self.create_default_for_bot(session, bot_id=bot_id, business_name=business_name)
+
+    async def update_settings(self, session: AsyncSession, *, settings_obj: BotSettings, **values: object) -> BotSettings:
+        for key, value in values.items():
+            if value is None:
+                continue
+            if hasattr(settings_obj, key):
+                setattr(settings_obj, key, value)
+        await session.flush()
+        return settings_obj

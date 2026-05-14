@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card nav">
+  <a class="btn btn-secondary" href="/admin/bots">К списку</a>
+  <a class="btn btn-secondary" href="/admin/bots/{{ bot.id }}/knowledge">База знаний</a>
+  <a class="btn btn-secondary" href="/admin/bots/{{ bot.id }}/fields">Поля</a>
+  <a class="btn btn-secondary" href="/admin/bots/{{ bot.id }}/questions">Вопросы</a>
+  <a class="btn btn-secondary" href="/admin/bots/{{ bot.id }}/leads">Лиды</a>
+  <a class="btn btn-secondary" href="/admin/bots/{{ bot.id }}/human-questions">Human вопросы</a>
+</div>
+<div class="card">
+  <h1>Бот #{{ bot.id }}</h1>
+  <form method="post" action="/admin/bots/{{ bot.id }}">
+    <div class="row">
+      <div>
+        <label>Название</label><input name="name" value="{{ bot.name }}" required>
+        <label>Активен</label><input type="checkbox" name="is_active" {% if bot.is_active %}checked{% endif %}>
+        <label>Telegram username</label><input name="telegram_username" value="{{ channel.bot_username if channel else bot.telegram_bot_username or '' }}">
+        <label>Новый Telegram token (необязательно)</label><input name="telegram_token">
+      </div>
+      <div>
+        <label>Business name</label><input name="business_name" value="{{ settings_obj.business_name }}" required>
+        <label>answer_only_from_knowledge_base</label><input type="checkbox" name="answer_only_from_knowledge_base" {% if settings_obj.answer_only_from_knowledge_base %}checked{% endif %}>
+        <label>collect_leads</label><input type="checkbox" name="collect_leads" {% if settings_obj.collect_leads %}checked{% endif %}>
+      </div>
+    </div>
+    <label>Business description</label><textarea name="business_description">{{ settings_obj.business_description or '' }}</textarea>
+    <label>Allowed topics</label><textarea name="allowed_topics">{{ settings_obj.allowed_topics or '' }}</textarea>
+    <label>Forbidden topics</label><textarea name="forbidden_topics">{{ settings_obj.forbidden_topics or '' }}</textarea>
+    <label>Offtopic message</label><textarea name="offtopic_message">{{ settings_obj.offtopic_message }}</textarea>
+    <label>Fallback message</label><textarea name="fallback_message">{{ settings_obj.fallback_message }}</textarea>
+    <label>Human transfer message</label><textarea name="human_transfer_message">{{ settings_obj.human_transfer_message }}</textarea>
+    <button type="submit">Сохранить</button>
+  </form>
+</div>
+{% endblock %}

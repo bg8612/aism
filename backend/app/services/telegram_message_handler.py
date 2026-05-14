@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.config import settings
 from app.db.session import AsyncSessionLocal
+from app.repositories.bot_channel_repository import BotChannelRepository
 from app.repositories.human_question_repository import HumanQuestionRepository
 from app.services.ai_response_parser import AIManagerResult, AIResponseParser
 from app.services.business_context_service import BusinessContext, BusinessContextService
@@ -16,6 +17,7 @@ from app.services.lead_processing_service import LeadProcessingService
 from app.services.openrouter_client import OpenRouterClient
 from app.services.telegram_client import TelegramClient
 from app.services.telegram_waiting_indicator import TelegramWaitingIndicator
+from app.services.token_crypto_service import TokenCryptoService
 from app.services.topic_filter_service import TopicFilterService
 
 logger = logging.getLogger(__name__)
@@ -35,6 +37,8 @@ class TelegramMessageHandler:
         ai_response_parser: AIResponseParser | None = None,
         lead_processing_service: LeadProcessingService | None = None,
         human_question_repository: HumanQuestionRepository | None = None,
+        bot_channel_repository: BotChannelRepository | None = None,
+        token_crypto_service: TokenCryptoService | None = None,
         session_factory: async_sessionmaker[AsyncSession] = AsyncSessionLocal,
     ) -> None:
         self._telegram_client = telegram_client
@@ -45,6 +49,8 @@ class TelegramMessageHandler:
         self._ai_response_parser = ai_response_parser or AIResponseParser()
         self._lead_processing_service = lead_processing_service or LeadProcessingService()
         self._human_question_repository = human_question_repository or HumanQuestionRepository()
+        self._bot_channel_repository = bot_channel_repository or BotChannelRepository()
+        self._token_crypto_service = token_crypto_service or TokenCryptoService()
         self._session_factory = session_factory
 
     async def handle_telegram_message(
@@ -61,6 +67,7 @@ class TelegramMessageHandler:
             update=update,
             user_text=user_text,
         )
+        telegram_client = await self._resolve_telegram_client_for_context(dialogue_context)
         model_context = await self._dialogue_storage_service.get_model_context(
             context=dialogue_context,
             user_text=user_text,
@@ -72,6 +79,7 @@ class TelegramMessageHandler:
 
         if business_context is None:
             reply = await self._generate_legacy_reply(
+                telegram_client=telegram_client,
                 chat_id=chat_id,
                 message_id=message_id,
                 user_text=user_text,
@@ -79,6 +87,7 @@ class TelegramMessageHandler:
                 memory_notes=model_context.memory_notes,
             )
             await self._finalize_reply(
+                telegram_client=telegram_client,
                 chat_id=chat_id,
                 message_id=message_id,
                 dialogue_context=dialogue_context,
@@ -91,6 +100,7 @@ class TelegramMessageHandler:
         if not filter_result.is_allowed:
             reply = filter_result.reply_if_rejected or business_context.bot_settings.offtopic_message
             await self._finalize_reply(
+                telegram_client=telegram_client,
                 chat_id=chat_id,
                 message_id=message_id,
                 dialogue_context=dialogue_context,
@@ -99,7 +109,7 @@ class TelegramMessageHandler:
             )
             return {"ok": True, "mode": "topic_filter", "reason": filter_result.reason}
 
-        waiting_indicator = TelegramWaitingIndicator(self._telegram_client)
+        waiting_indicator = TelegramWaitingIndicator(telegram_client)
         await waiting_indicator.start(chat_id=chat_id, reply_to_message_id=message_id)
         try:
             raw_manager_response = await self._openrouter_client.generate_business_manager_response(
@@ -143,6 +153,7 @@ class TelegramMessageHandler:
             reply = f"{reply}\n\n{lead_result.next_question}".strip()
 
         await self._finalize_reply(
+            telegram_client=telegram_client,
             chat_id=chat_id,
             message_id=message_id,
             dialogue_context=dialogue_context,
@@ -154,13 +165,14 @@ class TelegramMessageHandler:
     async def _generate_legacy_reply(
         self,
         *,
+        telegram_client: TelegramClient,
         chat_id: int,
         message_id: int | None,
         user_text: str,
         conversation_messages: list[dict[str, str]],
         memory_notes: list[str],
     ) -> str:
-        waiting_indicator = TelegramWaitingIndicator(self._telegram_client)
+        waiting_indicator = TelegramWaitingIndicator(telegram_client)
         await waiting_indicator.start(chat_id=chat_id, reply_to_message_id=message_id)
         try:
             return await self._openrouter_client.generate_reply(
@@ -204,6 +216,7 @@ class TelegramMessageHandler:
     async def _finalize_reply(
         self,
         *,
+        telegram_client: TelegramClient,
         chat_id: int,
         message_id: int | None,
         dialogue_context: DialogueContext | None,
@@ -216,11 +229,32 @@ class TelegramMessageHandler:
             reply_text=safe_reply,
             raw_payload_json={"source": source},
         )
-        await self._telegram_client.send_message(
+        await telegram_client.send_message(
             chat_id=chat_id,
             text=safe_reply,
             reply_to_message_id=message_id,
         )
+
+    async def _resolve_telegram_client_for_context(self, context: DialogueContext | None) -> TelegramClient:
+        if context is None:
+            return self._telegram_client
+
+        async with self._session_factory() as session:
+            channel = await self._bot_channel_repository.get_by_bot_id_and_channel(
+                session,
+                bot_id=context.bot_id,
+                channel_type="telegram",
+            )
+            if channel is None or not channel.is_active:
+                return self._telegram_client
+            try:
+                token = self._token_crypto_service.decrypt(channel.bot_token_encrypted)
+            except Exception:
+                logger.exception("Failed to decrypt telegram token for bot_id=%s", context.bot_id)
+                return self._telegram_client
+            if not token.strip():
+                return self._telegram_client
+            return TelegramClient(bot_token=token)
 
     def _build_final_reply(self, *, ai_result: AIManagerResult, business_context: BusinessContext) -> str:
         reply = self._openrouter_client.sanitize_manager_reply(

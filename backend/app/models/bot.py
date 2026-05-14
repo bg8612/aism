@@ -19,3 +19,8 @@ class Bot(TimestampMixin, Base):
     conversations = relationship("Conversation", back_populates="bot")
     messages = relationship("Message", back_populates="bot")
     leads = relationship("Lead", back_populates="bot")
+    settings = relationship("BotSettings", back_populates="bot", uselist=False)
+    knowledge_blocks = relationship("KnowledgeBlock", back_populates="bot")
+    bot_fields = relationship("BotField", back_populates="bot")
+    bot_questions = relationship("BotQuestion", back_populates="bot")
+    human_questions = relationship("HumanQuestion", back_populates="bot")

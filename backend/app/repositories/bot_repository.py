@@ -7,6 +7,15 @@ from app.models.bot import Bot
 
 
 class BotRepository:
+    async def get_by_id(
+        self,
+        session: AsyncSession,
+        *,
+        bot_id: int,
+    ) -> Bot | None:
+        statement = select(Bot).where(Bot.id == bot_id).limit(1)
+        return await session.scalar(statement)
+
     async def get_or_create_telegram_bot(
         self,
         session: AsyncSession,

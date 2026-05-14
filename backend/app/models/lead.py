@@ -22,3 +22,4 @@ class Lead(TimestampMixin, Base):
     conversation = relationship("Conversation", back_populates="leads")
     end_user = relationship("EndUser", back_populates="leads")
     field_values = relationship("LeadFieldValue", back_populates="lead")
+    human_questions = relationship("HumanQuestion", back_populates="lead")

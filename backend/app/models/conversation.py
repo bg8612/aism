@@ -24,3 +24,4 @@ class Conversation(TimestampMixin, Base):
     end_user = relationship("EndUser", back_populates="conversations")
     messages = relationship("Message", back_populates="conversation")
     leads = relationship("Lead", back_populates="conversation")
+    human_questions = relationship("HumanQuestion", back_populates="conversation")

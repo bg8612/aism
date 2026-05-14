@@ -8,8 +8,8 @@ from app.core.config import settings
 from app.services.dialogue_storage_service import DialogueStorageService
 from app.services.openrouter_client import OpenRouterClient
 from app.services.telegram_client import TelegramClient
+from app.services.telegram_message_handler import TelegramMessageHandler
 from app.services.telegram_update_guard import TelegramUpdateGuard
-from app.services.telegram_waiting_indicator import TelegramWaitingIndicator
 
 logger = logging.getLogger(__name__)
 
@@ -20,10 +20,16 @@ class TelegramPollingRunner:
         telegram_client: TelegramClient,
         openrouter_client: OpenRouterClient,
         dialogue_storage_service: DialogueStorageService | None = None,
+        telegram_message_handler: TelegramMessageHandler | None = None,
     ) -> None:
         self.telegram_client = telegram_client
         self.openrouter_client = openrouter_client
         self.dialogue_storage_service = dialogue_storage_service or DialogueStorageService()
+        self.telegram_message_handler = telegram_message_handler or TelegramMessageHandler(
+            telegram_client,
+            openrouter_client,
+            dialogue_storage_service=self.dialogue_storage_service,
+        )
         self.update_guard = TelegramUpdateGuard()
         self._task: asyncio.Task | None = None
         self._offset: int | None = None
@@ -71,50 +77,4 @@ class TelegramPollingRunner:
     async def _handle_update(self, update: dict[str, Any]) -> None:
         if await self.update_guard.is_duplicate(update):
             return
-
-        message = update.get("message") or update.get("edited_message") or {}
-        chat = message.get("chat") or {}
-        chat_id = chat.get("id")
-        message_id = message.get("message_id")
-        text = message.get("text") or message.get("caption")
-
-        if not isinstance(chat_id, int) or not isinstance(text, str) or not text.strip():
-            return
-
-        user_text = text.strip()
-        dialogue_context = await self.dialogue_storage_service.save_user_message_from_telegram(
-            update=update,
-            user_text=user_text,
-        )
-        model_context = await self.dialogue_storage_service.get_model_context(
-            context=dialogue_context,
-            user_text=user_text,
-        )
-        waiting_indicator = TelegramWaitingIndicator(self.telegram_client)
-        await waiting_indicator.start(
-            chat_id=chat_id,
-            reply_to_message_id=message_id if isinstance(message_id, int) else None,
-        )
-
-        try:
-            reply = await self.openrouter_client.generate_reply(
-                user_text,
-                conversation_messages=model_context.conversation_messages,
-                memory_notes=model_context.memory_notes,
-            )
-        except Exception:
-            reply = "Сервис временно недоступен. Попробуйте еще раз через минуту."
-        finally:
-            await waiting_indicator.stop()
-
-        await self.dialogue_storage_service.save_bot_reply(
-            context=dialogue_context,
-            reply_text=reply,
-            raw_payload_json={"source": "telegram_polling"},
-        )
-
-        await self.telegram_client.send_message(
-            chat_id=chat_id,
-            text=reply,
-            reply_to_message_id=message_id if isinstance(message_id, int) else None,
-        )
+        await self.telegram_message_handler.handle_telegram_message(update=update, source="telegram_polling")

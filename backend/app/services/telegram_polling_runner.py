@@ -73,7 +73,7 @@ class TelegramPollingRunner:
         try:
             reply = await self.openrouter_client.generate_reply(user_text)
         except Exception:
-            reply = "I could not get a model response right now. Please try again in a minute."
+            reply = "Сервис временно недоступен. Попробуйте еще раз через минуту."
 
         await self.telegram_client.send_message(
             chat_id=chat_id,

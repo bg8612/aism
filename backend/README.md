@@ -22,6 +22,11 @@ uvicorn app.main:app --reload --port 8000
 - `TELEGRAM_MODE=polling` (recommended for quick start): bot reads updates via `getUpdates`.
 - `TELEGRAM_MODE=webhook`: use Telegram webhook (requires valid HTTPS URL).
 
+## Bot language behavior
+
+- By default, the bot is forced to answer in Russian and keeps replies short.
+- You can override this via `OPENROUTER_SYSTEM_PROMPT` in `.env`.
+
 ## Set webhook (if using webhook mode)
 
 ```bash

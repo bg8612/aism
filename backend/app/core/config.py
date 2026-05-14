@@ -22,6 +22,11 @@ class Settings(BaseSettings):
     openrouter_app_name: str = "AISM Bot"
     openrouter_app_url: str = "https://openrouter.ai"
     openrouter_temperature: float = 0.3
+    openrouter_system_prompt: str = (
+        "Ты русскоязычный ассистент Telegram-бота. "
+        "Отвечай только на русском языке. "
+        "Пиши кратко и по делу, без служебных тегов, XML/JSON, кода и лишнего шума."
+    )
 
     bot_reply_max_chars: int = 3900
 

@@ -43,7 +43,7 @@ async def telegram_webhook(
     try:
         reply = await openrouter_client.generate_reply(user_text)
     except Exception:
-        reply = "I could not get a model response right now. Please try again in a minute."
+        reply = "Сервис временно недоступен. Попробуйте еще раз через минуту."
 
     try:
         await telegram_client.send_message(chat_id=chat_id, text=reply, reply_to_message_id=message_id)

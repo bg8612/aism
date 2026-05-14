@@ -1,5 +1,6 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
+import re
 from typing import Any
 
 import httpx
@@ -26,7 +27,7 @@ class OpenRouterClient:
             "messages": [
                 {
                     "role": "system",
-                    "content": "You are a helpful Telegram bot assistant. Keep answers concise and practical.",
+                    "content": settings.openrouter_system_prompt,
                 },
                 {"role": "user", "content": user_text},
             ],
@@ -44,13 +45,13 @@ class OpenRouterClient:
 
         choices = data.get("choices") or []
         if not choices:
-            return "Could not get a valid model response."
+            return "Сейчас не получилось сформировать ответ. Попробуйте еще раз."
 
         message = choices[0].get("message") or {}
         content = message.get("content")
 
         if isinstance(content, str) and content.strip():
-            return content.strip()
+            return self._sanitize_reply(content)
 
         if isinstance(content, list):
             text_parts: list[str] = []
@@ -60,6 +61,24 @@ class OpenRouterClient:
                     if isinstance(text, str) and text.strip():
                         text_parts.append(text.strip())
             if text_parts:
-                return "\n".join(text_parts)
+                return self._sanitize_reply("\n".join(text_parts))
 
-        return "Model returned an empty response."
+        return "Сейчас не получилось сформировать ответ. Попробуйте еще раз."
+
+    def _sanitize_reply(self, text: str) -> str:
+        cleaned = re.sub(r"<[^>\n]{1,80}>", " ", text)
+        cleaned = re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F]", " ", cleaned)
+        cleaned = re.sub(r"[ \t]{2,}", " ", cleaned)
+        cleaned = re.sub(r"\n{3,}", "\n\n", cleaned).strip()
+
+        if not cleaned:
+            return "Сейчас не получилось сформировать ответ. Попробуйте еще раз."
+
+        noise_symbols = sum(1 for ch in cleaned if ch in "{}[]<>#_*`|~^")
+        has_cyrillic = bool(re.search(r"[А-Яа-яЁё]", cleaned))
+        is_too_noisy = noise_symbols > 12 or (noise_symbols / max(len(cleaned), 1)) > 0.08
+
+        if is_too_noisy or not has_cyrillic:
+            return "Не удалось получить корректный ответ. Сформулируйте вопрос еще раз, и я отвечу по-русски."
+
+        return cleaned

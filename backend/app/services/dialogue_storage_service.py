@@ -52,16 +52,24 @@ class DialogueStorageService:
         self,
         *,
         context: DialogueContext | None,
+        user_text: str,
     ) -> ModelContext:
         if context is None:
             return ModelContext(conversation_messages=[], memory_notes=[])
+
+        include_memory_notes = self._should_include_memory_notes(user_text)
+        load_limit = (
+            settings.openrouter_memory_scan_message_limit
+            if include_memory_notes
+            else settings.openrouter_context_message_limit
+        )
 
         async with self._session_factory() as session:
             try:
                 stored_messages = await self._message_repository.list_recent_for_context(
                     session,
                     conversation_id=context.conversation_id,
-                    limit=settings.openrouter_memory_scan_message_limit,
+                    limit=load_limit,
                 )
             except SQLAlchemyError:
                 logger.exception("Database error while loading conversation history")
@@ -84,7 +92,7 @@ class DialogueStorageService:
                 continue
             model_messages.append({"role": role, "content": content})
 
-        memory_notes = self._extract_memory_notes(stored_messages)
+        memory_notes = self._extract_memory_notes(stored_messages) if include_memory_notes else []
         return ModelContext(
             conversation_messages=model_messages,
             memory_notes=memory_notes,
@@ -252,3 +260,20 @@ class DialogueStorageService:
             if stripped.startswith(left_quote) and stripped.endswith(right_quote) and len(stripped) >= 2:
                 return stripped[1:-1].strip()
         return stripped
+
+    def _should_include_memory_notes(self, user_text: str) -> bool:
+        lowered = user_text.casefold()
+        triggers = [
+            "помнишь",
+            "запомнил",
+            "что я просил",
+            "что я сказал",
+            "что ты записал",
+            "что ты запомнил",
+            "заметк",
+            "напомни",
+            "вспомни",
+            "что у меня в заметках",
+            "что в заметках",
+        ]
+        return any(trigger in lowered for trigger in triggers)

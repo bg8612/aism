@@ -83,6 +83,7 @@ class TelegramPollingRunner:
         )
         model_context = await self.dialogue_storage_service.get_model_context(
             context=dialogue_context,
+            user_text=user_text,
         )
         waiting_indicator = TelegramWaitingIndicator(self.telegram_client)
         await waiting_indicator.start(

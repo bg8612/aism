@@ -18,6 +18,11 @@ INVALID_REPLY_FALLBACK = (
     "Сформулируйте вопрос еще раз, и я отвечу по-русски."
 )
 
+INTERNAL_RULE_LEAK_FALLBACK = (
+    "Я текстовый ассистент в этом боте. "
+    "Помогаю с вопросами и заметками внутри этого чата."
+)
+
 MEMORY_SYSTEM_NOTE = (
     "Пассивная память из этого чата. "
     "Используй ее только если это действительно нужно для текущего ответа "
@@ -109,6 +114,9 @@ class OpenRouterClient:
         if not cleaned:
             return EMPTY_REPLY_FALLBACK
 
+        if self._looks_like_internal_rule_leak(cleaned):
+            return INTERNAL_RULE_LEAK_FALLBACK
+
         noise_symbols = sum(1 for ch in cleaned if ch in "{}[]<>#_*`|~^")
         has_cyrillic = bool(re.search(r"[А-Яа-яЁё]", cleaned))
         is_too_noisy = noise_symbols > 12 or (noise_symbols / max(len(cleaned), 1)) > 0.08
@@ -117,3 +125,20 @@ class OpenRouterClient:
             return INVALID_REPLY_FALLBACK
 
         return cleaned
+
+    def _looks_like_internal_rule_leak(self, text: str) -> bool:
+        lowered = text.casefold()
+        markers = [
+            "системн",
+            "промпт",
+            "инструкц",
+            "внутрен",
+            "скрыт",
+            "настройк",
+            "конфигурац",
+            "developer",
+            "system message",
+            "служебн",
+            "xml/json",
+        ]
+        return any(marker in lowered for marker in markers)

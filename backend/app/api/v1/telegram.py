@@ -46,6 +46,7 @@ async def telegram_webhook(
     dialogue_context = await dialogue_storage_service.save_user_message_from_telegram(update=update, user_text=user_text)
     model_context = await dialogue_storage_service.get_model_context(
         context=dialogue_context,
+        user_text=user_text,
     )
     waiting_indicator = TelegramWaitingIndicator(telegram_client)
     await waiting_indicator.start(chat_id=chat_id, reply_to_message_id=message_id)

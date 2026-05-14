@@ -24,11 +24,17 @@ class Settings(BaseSettings):
     openrouter_app_name: str = "AISM Bot"
     openrouter_app_url: str = "https://openrouter.ai"
     openrouter_temperature: float = 0.3
-    openrouter_context_message_limit: int = 12
+    openrouter_context_message_limit: int = 6
+    openrouter_memory_note_limit: int = 8
+    openrouter_memory_scan_message_limit: int = 40
     openrouter_system_prompt: str = (
         "Ты русскоязычный ассистент Telegram-бота. "
         "Отвечай только на русском языке. "
-        "Пиши кратко и по делу, без служебных тегов, XML/JSON, кода и лишнего шума."
+        "Пиши кратко и по делу, без служебных тегов, XML/JSON, кода и лишнего шума. "
+        "Память из этого чата используй аккуратно: не упоминай сохраненные факты сама по себе, "
+        "если пользователь прямо об этом не спросил и если это не нужно для текущего ответа. "
+        "Если пользователь спрашивает, почему ты что-то помнишь или зачем это упоминаешь, "
+        "объясни простыми словами, что это информация из предыдущих сообщений этого же чата."
     )
 
     bot_reply_max_chars: int = 3900

@@ -27,6 +27,12 @@ class DialogueContext:
     channel: str = "telegram"
 
 
+@dataclass(slots=True)
+class ModelContext:
+    conversation_messages: list[dict[str, str]]
+    memory_notes: list[str]
+
+
 class DialogueStorageService:
     def __init__(
         self,
@@ -42,42 +48,47 @@ class DialogueStorageService:
         self._conversation_repository = conversation_repository or ConversationRepository()
         self._message_repository = message_repository or MessageRepository()
 
-    async def get_conversation_messages_for_model(
+    async def get_model_context(
         self,
         *,
         context: DialogueContext | None,
-    ) -> list[dict[str, str]]:
+    ) -> ModelContext:
         if context is None:
-            return []
+            return ModelContext(conversation_messages=[], memory_notes=[])
 
         async with self._session_factory() as session:
             try:
                 stored_messages = await self._message_repository.list_recent_for_context(
                     session,
                     conversation_id=context.conversation_id,
-                    limit=settings.openrouter_context_message_limit,
+                    limit=settings.openrouter_memory_scan_message_limit,
                 )
             except SQLAlchemyError:
                 logger.exception("Database error while loading conversation history")
-                return []
+                return ModelContext(conversation_messages=[], memory_notes=[])
             except Exception:
                 logger.exception("Unexpected error while loading conversation history")
-                return []
+                return ModelContext(conversation_messages=[], memory_notes=[])
 
         role_map = {
             "user": "user",
             "bot": "assistant",
             "system": "system",
         }
+        recent_messages = stored_messages[-settings.openrouter_context_message_limit :]
         model_messages: list[dict[str, str]] = []
-        for stored_message in stored_messages:
+        for stored_message in recent_messages:
             role = role_map.get(stored_message.sender_type)
             content = stored_message.message_text.strip()
             if role is None or not content:
                 continue
             model_messages.append({"role": role, "content": content})
 
-        return model_messages
+        memory_notes = self._extract_memory_notes(stored_messages)
+        return ModelContext(
+            conversation_messages=model_messages,
+            memory_notes=memory_notes,
+        )
 
     async def save_user_message_from_telegram(
         self,
@@ -173,3 +184,50 @@ class DialogueStorageService:
             except Exception:
                 await session.rollback()
                 logger.exception("Unexpected error while saving bot reply")
+
+    def _extract_memory_notes(self, stored_messages: list[Any]) -> list[str]:
+        notes: list[str] = []
+        seen: set[str] = set()
+
+        for stored_message in reversed(stored_messages):
+            if stored_message.sender_type != "user":
+                continue
+
+            note = self._extract_memory_note_from_text(stored_message.message_text)
+            if note is None:
+                continue
+
+            normalized_note = note.casefold()
+            if normalized_note in seen:
+                continue
+
+            seen.add(normalized_note)
+            notes.append(note)
+            if len(notes) >= settings.openrouter_memory_note_limit:
+                break
+
+        notes.reverse()
+        return notes
+
+    def _extract_memory_note_from_text(self, text: str) -> str | None:
+        normalized = " ".join(text.strip().split())
+        lowered = normalized.casefold()
+        triggers = [
+            "запомни ",
+            "запомни, ",
+            "пожалуйста запомни ",
+            "прошу запомнить ",
+            "нужно запомнить ",
+        ]
+
+        for trigger in triggers:
+            index = lowered.find(trigger)
+            if index == -1:
+                continue
+
+            note = normalized[index + len(trigger) :].strip(" .,!?:;\"'")
+            if len(note) < 2:
+                return None
+            return note[:300]
+
+        return None

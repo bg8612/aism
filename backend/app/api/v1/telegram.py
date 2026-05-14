@@ -8,6 +8,7 @@ from app.core.config import settings
 from app.services.dialogue_storage_service import DialogueStorageService
 from app.services.openrouter_client import OpenRouterClient
 from app.services.telegram_client import TelegramClient
+from app.services.telegram_waiting_indicator import TelegramWaitingIndicator
 
 router = APIRouter(prefix="/telegram", tags=["telegram"])
 
@@ -43,17 +44,22 @@ async def telegram_webhook(
         return {"ok": True, "skipped": "no_text_message"}
 
     dialogue_context = await dialogue_storage_service.save_user_message_from_telegram(update=update, user_text=user_text)
-    conversation_messages = await dialogue_storage_service.get_conversation_messages_for_model(
+    model_context = await dialogue_storage_service.get_model_context(
         context=dialogue_context,
     )
+    waiting_indicator = TelegramWaitingIndicator(telegram_client)
+    await waiting_indicator.start(chat_id=chat_id, reply_to_message_id=message_id)
 
     try:
         reply = await openrouter_client.generate_reply(
             user_text,
-            conversation_messages=conversation_messages,
+            conversation_messages=model_context.conversation_messages,
+            memory_notes=model_context.memory_notes,
         )
     except Exception:
         reply = "Сервис временно недоступен. Попробуйте еще раз через минуту."
+    finally:
+        await waiting_indicator.stop()
 
     await dialogue_storage_service.save_bot_reply(
         context=dialogue_context,

@@ -40,7 +40,7 @@ alembic upgrade head
 - Incoming Telegram message is stored in PostgreSQL (`messages.sender_type = "user"`).
 - Bot answer from OpenRouter is stored in PostgreSQL (`messages.sender_type = "bot"`).
 - Bot/EndUser/Conversation are created automatically on first message.
-- Before requesting OpenRouter, the backend loads recent messages from the same conversation and sends them as context.
+- Before requesting OpenRouter, the backend loads a short recent dialogue window and separate passive memory notes from the same chat.
 
 ## Set webhook (if using webhook mode)
 

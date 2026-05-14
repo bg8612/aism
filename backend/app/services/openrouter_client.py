@@ -21,6 +21,17 @@ INVALID_REPLY_FALLBACK = (
     "\u0435\u0449\u0435 \u0440\u0430\u0437, \u0438 \u044f \u043e\u0442\u0432\u0435\u0447\u0443 \u043f\u043e-\u0440\u0443\u0441\u0441\u043a\u0438."
 )
 
+MEMORY_SYSTEM_NOTE = (
+    "\u041f\u0430\u0441\u0441\u0438\u0432\u043d\u0430\u044f \u043f\u0430\u043c\u044f\u0442\u044c "
+    "\u0438\u0437 \u044d\u0442\u043e\u0433\u043e \u0447\u0430\u0442\u0430. "
+    "\u0418\u0441\u043f\u043e\u043b\u044c\u0437\u0443\u0439 \u0435\u0435 \u0442\u043e\u043b\u044c\u043a\u043e "
+    "\u0435\u0441\u043b\u0438 \u044d\u0442\u043e \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u0442\u0435\u043b\u044c\u043d\u043e "
+    "\u043d\u0443\u0436\u043d\u043e \u0434\u043b\u044f \u0442\u0435\u043a\u0443\u0449\u0435\u0433\u043e "
+    "\u043e\u0442\u0432\u0435\u0442\u0430 \u0438\u043b\u0438 \u0435\u0441\u043b\u0438 "
+    "\u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u044c \u043f\u0440\u044f\u043c\u043e "
+    "\u0441\u043f\u0440\u0430\u0448\u0438\u0432\u0430\u0435\u0442, \u0447\u0442\u043e \u0442\u044b \u043f\u043e\u043c\u043d\u0438\u0448\u044c."
+)
+
 
 class OpenRouterClient:
     def __init__(self) -> None:
@@ -30,6 +41,7 @@ class OpenRouterClient:
         self,
         user_text: str,
         conversation_messages: list[dict[str, str]] | None = None,
+        memory_notes: list[str] | None = None,
     ) -> str:
         if not settings.openrouter_api_key:
             raise RuntimeError("OPENROUTER_API_KEY is not configured")
@@ -46,6 +58,14 @@ class OpenRouterClient:
                 "content": settings.openrouter_system_prompt,
             }
         ]
+        if memory_notes:
+            memory_lines = "\n".join(f"- {note}" for note in memory_notes)
+            messages.append(
+                {
+                    "role": "system",
+                    "content": f"{MEMORY_SYSTEM_NOTE}\n{memory_lines}",
+                }
+            )
         if conversation_messages:
             messages.extend(conversation_messages)
         else:

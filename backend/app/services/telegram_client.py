@@ -12,7 +12,12 @@ class TelegramClient:
             raise RuntimeError("TELEGRAM_BOT_TOKEN is not configured")
         return f"https://api.telegram.org/bot{settings.telegram_bot_token}"
 
-    async def send_message(self, chat_id: int, text: str, reply_to_message_id: int | None = None) -> None:
+    async def send_message(
+        self,
+        chat_id: int,
+        text: str,
+        reply_to_message_id: int | None = None,
+    ) -> dict:
         payload: dict[str, object] = {
             "chat_id": chat_id,
             "text": text[: settings.bot_reply_max_chars],
@@ -23,6 +28,28 @@ class TelegramClient:
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(f"{self._base_url}/sendMessage", json=payload)
             response.raise_for_status()
+            return response.json()
+
+    async def edit_message_text(self, chat_id: int, message_id: int, text: str) -> dict:
+        payload: dict[str, object] = {
+            "chat_id": chat_id,
+            "message_id": message_id,
+            "text": text[: settings.bot_reply_max_chars],
+        }
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(f"{self._base_url}/editMessageText", json=payload)
+            response.raise_for_status()
+            return response.json()
+
+    async def delete_message(self, chat_id: int, message_id: int) -> dict:
+        payload: dict[str, object] = {
+            "chat_id": chat_id,
+            "message_id": message_id,
+        }
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(f"{self._base_url}/deleteMessage", json=payload)
+            response.raise_for_status()
+            return response.json()
 
     async def set_webhook(self, webhook_url: str, secret_token: str = "") -> dict:
         payload: dict[str, object] = {"url": webhook_url}

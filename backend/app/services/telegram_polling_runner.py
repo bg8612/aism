@@ -8,6 +8,7 @@ from app.core.config import settings
 from app.services.dialogue_storage_service import DialogueStorageService
 from app.services.openrouter_client import OpenRouterClient
 from app.services.telegram_client import TelegramClient
+from app.services.telegram_waiting_indicator import TelegramWaitingIndicator
 
 logger = logging.getLogger(__name__)
 
@@ -80,17 +81,25 @@ class TelegramPollingRunner:
             update=update,
             user_text=user_text,
         )
-        conversation_messages = await self.dialogue_storage_service.get_conversation_messages_for_model(
+        model_context = await self.dialogue_storage_service.get_model_context(
             context=dialogue_context,
+        )
+        waiting_indicator = TelegramWaitingIndicator(self.telegram_client)
+        await waiting_indicator.start(
+            chat_id=chat_id,
+            reply_to_message_id=message_id if isinstance(message_id, int) else None,
         )
 
         try:
             reply = await self.openrouter_client.generate_reply(
                 user_text,
-                conversation_messages=conversation_messages,
+                conversation_messages=model_context.conversation_messages,
+                memory_notes=model_context.memory_notes,
             )
         except Exception:
             reply = "Сервис временно недоступен. Попробуйте еще раз через минуту."
+        finally:
+            await waiting_indicator.stop()
 
         await self.dialogue_storage_service.save_bot_reply(
             context=dialogue_context,

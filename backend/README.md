@@ -10,6 +10,14 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
 ```
 
+## Database and migrations
+
+```bash
+cd backend
+.venv\Scripts\activate
+alembic upgrade head
+```
+
 ## Endpoints
 
 - `GET /api/v1/health`
@@ -26,6 +34,13 @@ uvicorn app.main:app --reload --port 8000
 
 - By default, the bot is forced to answer in Russian and keeps replies short.
 - You can override this via `OPENROUTER_SYSTEM_PROMPT` in `.env`.
+
+## Message storage flow
+
+- Incoming Telegram message is stored in PostgreSQL (`messages.sender_type = "user"`).
+- Bot answer from OpenRouter is stored in PostgreSQL (`messages.sender_type = "bot"`).
+- Bot/EndUser/Conversation are created automatically on first message.
+- Before requesting OpenRouter, the backend loads recent messages from the same conversation and sends them as context.
 
 ## Set webhook (if using webhook mode)
 

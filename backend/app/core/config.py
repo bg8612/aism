@@ -1,4 +1,4 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
+﻿from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -8,6 +8,8 @@ class Settings(BaseSettings):
     app_port: int = 8000
     database_url: str = "postgresql+psycopg://aism_app:aism_pass@127.0.0.1:5432/aism_db"
 
+    bot_name: str = "AISM Bot"
+    telegram_bot_username: str = ""
     telegram_bot_token: str = ""
     telegram_mode: str = "polling"
     telegram_poll_timeout_sec: int = 30
@@ -22,6 +24,7 @@ class Settings(BaseSettings):
     openrouter_app_name: str = "AISM Bot"
     openrouter_app_url: str = "https://openrouter.ai"
     openrouter_temperature: float = 0.3
+    openrouter_context_message_limit: int = 12
     openrouter_system_prompt: str = (
         "Ты русскоязычный ассистент Telegram-бота. "
         "Отвечай только на русском языке. "

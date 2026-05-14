@@ -5,6 +5,7 @@ import logging
 from typing import Any
 
 from app.core.config import settings
+from app.services.dialogue_storage_service import DialogueStorageService
 from app.services.openrouter_client import OpenRouterClient
 from app.services.telegram_client import TelegramClient
 
@@ -12,9 +13,15 @@ logger = logging.getLogger(__name__)
 
 
 class TelegramPollingRunner:
-    def __init__(self, telegram_client: TelegramClient, openrouter_client: OpenRouterClient) -> None:
+    def __init__(
+        self,
+        telegram_client: TelegramClient,
+        openrouter_client: OpenRouterClient,
+        dialogue_storage_service: DialogueStorageService | None = None,
+    ) -> None:
         self.telegram_client = telegram_client
         self.openrouter_client = openrouter_client
+        self.dialogue_storage_service = dialogue_storage_service or DialogueStorageService()
         self._task: asyncio.Task | None = None
         self._offset: int | None = None
         self._stop_event = asyncio.Event()
@@ -69,11 +76,27 @@ class TelegramPollingRunner:
             return
 
         user_text = text.strip()
+        dialogue_context = await self.dialogue_storage_service.save_user_message_from_telegram(
+            update=update,
+            user_text=user_text,
+        )
+        conversation_messages = await self.dialogue_storage_service.get_conversation_messages_for_model(
+            context=dialogue_context,
+        )
 
         try:
-            reply = await self.openrouter_client.generate_reply(user_text)
+            reply = await self.openrouter_client.generate_reply(
+                user_text,
+                conversation_messages=conversation_messages,
+            )
         except Exception:
             reply = "Сервис временно недоступен. Попробуйте еще раз через минуту."
+
+        await self.dialogue_storage_service.save_bot_reply(
+            context=dialogue_context,
+            reply_text=reply,
+            raw_payload_json={"source": "telegram_polling"},
+        )
 
         await self.telegram_client.send_message(
             chat_id=chat_id,

@@ -5,6 +5,7 @@ from typing import Any
 from fastapi import APIRouter, Header, HTTPException
 
 from app.core.config import settings
+from app.services.dialogue_storage_service import DialogueStorageService
 from app.services.openrouter_client import OpenRouterClient
 from app.services.telegram_client import TelegramClient
 
@@ -12,6 +13,7 @@ router = APIRouter(prefix="/telegram", tags=["telegram"])
 
 openrouter_client = OpenRouterClient()
 telegram_client = TelegramClient()
+dialogue_storage_service = DialogueStorageService()
 
 
 def _extract_text_payload(update: dict[str, Any]) -> tuple[int | None, int | None, str | None]:
@@ -40,10 +42,24 @@ async def telegram_webhook(
     if chat_id is None or not user_text:
         return {"ok": True, "skipped": "no_text_message"}
 
+    dialogue_context = await dialogue_storage_service.save_user_message_from_telegram(update=update, user_text=user_text)
+    conversation_messages = await dialogue_storage_service.get_conversation_messages_for_model(
+        context=dialogue_context,
+    )
+
     try:
-        reply = await openrouter_client.generate_reply(user_text)
+        reply = await openrouter_client.generate_reply(
+            user_text,
+            conversation_messages=conversation_messages,
+        )
     except Exception:
         reply = "Сервис временно недоступен. Попробуйте еще раз через минуту."
+
+    await dialogue_storage_service.save_bot_reply(
+        context=dialogue_context,
+        reply_text=reply,
+        raw_payload_json={"source": "telegram_webhook"},
+    )
 
     try:
         await telegram_client.send_message(chat_id=chat_id, text=reply, reply_to_message_id=message_id)

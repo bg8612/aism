@@ -218,6 +218,11 @@ class DialogueStorageService:
             "пожалуйста запомни ",
             "прошу запомнить ",
             "нужно запомнить ",
+            "сделай заметку ",
+            "сделай заметку: ",
+            "добавь в заметки ",
+            "запиши ",
+            "запиши: ",
         ]
 
         for trigger in triggers:
@@ -228,6 +233,22 @@ class DialogueStorageService:
             note = normalized[index + len(trigger) :].strip(" .,!?:;\"'")
             if len(note) < 2:
                 return None
+            note = self._strip_wrapping_quotes(note)
+            if len(note) < 2:
+                return None
             return note[:300]
 
         return None
+
+    def _strip_wrapping_quotes(self, text: str) -> str:
+        quote_pairs = [
+            ('"', '"'),
+            ("'", "'"),
+            ("«", "»"),
+            ("“", "”"),
+        ]
+        stripped = text.strip()
+        for left_quote, right_quote in quote_pairs:
+            if stripped.startswith(left_quote) and stripped.endswith(right_quote) and len(stripped) >= 2:
+                return stripped[1:-1].strip()
+        return stripped

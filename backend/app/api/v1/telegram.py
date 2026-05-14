@@ -8,6 +8,7 @@ from app.core.config import settings
 from app.services.dialogue_storage_service import DialogueStorageService
 from app.services.openrouter_client import OpenRouterClient
 from app.services.telegram_client import TelegramClient
+from app.services.telegram_update_guard import TelegramUpdateGuard
 from app.services.telegram_waiting_indicator import TelegramWaitingIndicator
 
 router = APIRouter(prefix="/telegram", tags=["telegram"])
@@ -15,6 +16,7 @@ router = APIRouter(prefix="/telegram", tags=["telegram"])
 openrouter_client = OpenRouterClient()
 telegram_client = TelegramClient()
 dialogue_storage_service = DialogueStorageService()
+telegram_update_guard = TelegramUpdateGuard()
 
 
 def _extract_text_payload(update: dict[str, Any]) -> tuple[int | None, int | None, str | None]:
@@ -38,6 +40,9 @@ async def telegram_webhook(
 ) -> dict[str, Any]:
     if settings.telegram_webhook_secret and x_telegram_bot_api_secret_token != settings.telegram_webhook_secret:
         raise HTTPException(status_code=401, detail="Invalid telegram secret token")
+
+    if await telegram_update_guard.is_duplicate(update):
+        return {"ok": True, "skipped": "duplicate_update"}
 
     chat_id, message_id, user_text = _extract_text_payload(update)
     if chat_id is None or not user_text:

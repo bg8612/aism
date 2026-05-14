@@ -8,6 +8,7 @@ from app.core.config import settings
 from app.services.dialogue_storage_service import DialogueStorageService
 from app.services.openrouter_client import OpenRouterClient
 from app.services.telegram_client import TelegramClient
+from app.services.telegram_update_guard import TelegramUpdateGuard
 from app.services.telegram_waiting_indicator import TelegramWaitingIndicator
 
 logger = logging.getLogger(__name__)
@@ -23,6 +24,7 @@ class TelegramPollingRunner:
         self.telegram_client = telegram_client
         self.openrouter_client = openrouter_client
         self.dialogue_storage_service = dialogue_storage_service or DialogueStorageService()
+        self.update_guard = TelegramUpdateGuard()
         self._task: asyncio.Task | None = None
         self._offset: int | None = None
         self._stop_event = asyncio.Event()
@@ -67,6 +69,9 @@ class TelegramPollingRunner:
                 await asyncio.sleep(2)
 
     async def _handle_update(self, update: dict[str, Any]) -> None:
+        if await self.update_guard.is_duplicate(update):
+            return
+
         message = update.get("message") or update.get("edited_message") or {}
         chat = message.get("chat") or {}
         chat_id = chat.get("id")

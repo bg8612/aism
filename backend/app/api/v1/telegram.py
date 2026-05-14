@@ -71,3 +71,17 @@ async def set_telegram_webhook(x_admin_token: str | None = Header(default=None))
         raise HTTPException(status_code=502, detail=f"setWebhook failed: {exc}") from exc
 
     return {"ok": True, "result": result}
+
+
+@router.get("/webhook-info")
+async def get_telegram_webhook_info(x_admin_token: str | None = Header(default=None)) -> dict[str, Any]:
+    if settings.admin_api_token:
+        if x_admin_token != settings.admin_api_token:
+            raise HTTPException(status_code=401, detail="Invalid admin token")
+
+    try:
+        result = await telegram_client.get_webhook_info()
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"getWebhookInfo failed: {exc}") from exc
+
+    return {"ok": True, "result": result}

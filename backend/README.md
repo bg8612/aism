@@ -15,16 +15,14 @@ uvicorn app.main:app --reload --port 8000
 - `GET /api/v1/health`
 - `POST /api/v1/telegram/webhook`
 - `POST /api/v1/telegram/set-webhook`
+- `GET /api/v1/telegram/webhook-info`
 
-## Telegram flow
+## Telegram modes
 
-1. Telegram sends update to `/api/v1/telegram/webhook`.
-2. Backend sends user text to OpenRouter (`deepseek/deepseek-v4-flash:free`).
-3. Backend sends model reply back via Telegram `sendMessage`.
+- `TELEGRAM_MODE=polling` (recommended for quick start): bot reads updates via `getUpdates`.
+- `TELEGRAM_MODE=webhook`: use Telegram webhook (requires valid HTTPS URL).
 
-## Set webhook
-
-Set `TELEGRAM_WEBHOOK_URL` in `.env` and call:
+## Set webhook (if using webhook mode)
 
 ```bash
 curl -X POST http://127.0.0.1:8000/api/v1/telegram/set-webhook -H "x-admin-token: <ADMIN_API_TOKEN>"

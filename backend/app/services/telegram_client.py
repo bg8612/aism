@@ -33,3 +33,27 @@ class TelegramClient:
             response = await client.post(f"{self._base_url}/setWebhook", json=payload)
             response.raise_for_status()
             return response.json()
+
+    async def delete_webhook(self, drop_pending_updates: bool = False) -> dict:
+        payload = {"drop_pending_updates": drop_pending_updates}
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(f"{self._base_url}/deleteWebhook", json=payload)
+            response.raise_for_status()
+            return response.json()
+
+    async def get_webhook_info(self) -> dict:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(f"{self._base_url}/getWebhookInfo")
+            response.raise_for_status()
+            return response.json()
+
+    async def get_updates(self, offset: int | None = None, timeout_sec: int = 30, limit: int = 20) -> list[dict]:
+        payload: dict[str, int] = {"timeout": timeout_sec, "limit": limit}
+        if offset is not None:
+            payload["offset"] = offset
+
+        async with httpx.AsyncClient(timeout=timeout_sec + 15.0) as client:
+            response = await client.post(f"{self._base_url}/getUpdates", json=payload)
+            response.raise_for_status()
+            data = response.json()
+            return data.get("result") or []

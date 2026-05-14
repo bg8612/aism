@@ -9,6 +9,9 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://aism_app:aism_pass@127.0.0.1:5432/aism_db"
 
     telegram_bot_token: str = ""
+    telegram_mode: str = "polling"
+    telegram_poll_timeout_sec: int = 30
+    telegram_poll_limit: int = 20
     telegram_webhook_secret: str = ""
     telegram_webhook_url: str = ""
     admin_api_token: str = ""

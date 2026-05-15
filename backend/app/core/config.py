@@ -23,6 +23,10 @@ class Settings(BaseSettings):
     )
     telegram_webhook_secret: str = ""
     telegram_webhook_url: str = ""
+    telegram_start_message: str = (
+        "Привет! Это бот компании. Напишите ваш вопрос по услугам, ценам, записи, "
+        "адресу, графику работы или контактам, и я помогу."
+    )
     admin_api_token: str = ""
 
     openrouter_api_key: str = ""

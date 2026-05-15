@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -39,7 +40,7 @@ class AIResponseParser:
     ) -> AIManagerResult:
         payload = self._load_json(raw_text)
         if payload is None:
-            return AIManagerResult(reply=fallback_reply)
+            return AIManagerResult(reply=self._fallback_or_plain_reply(raw_text, fallback_reply))
 
         reply = self._coerce_text(payload.get("reply")) or fallback_reply
         intent = self._normalize_choice(payload.get("intent"), ALLOWED_INTENTS, default="other")
@@ -115,3 +116,15 @@ class AIResponseParser:
             text = value.strip()
             return text or None
         return str(value).strip() or None
+
+    def _fallback_or_plain_reply(self, raw_text: str, fallback_reply: str) -> str:
+        cleaned = re.sub(r"\s+", " ", raw_text).strip()
+        if not cleaned:
+            return fallback_reply
+
+        # Model sometimes returns plain text instead of JSON; keep user-facing content
+        # if it looks like a normal Russian answer.
+        has_letters = bool(re.search(r"[A-Za-zА-Яа-яЁё]", cleaned))
+        if has_letters and len(cleaned) >= 8:
+            return cleaned[:2000]
+        return fallback_reply

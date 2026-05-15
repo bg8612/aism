@@ -34,6 +34,10 @@ class KnowledgeRepository:
         is_price_intent = bool(set(query_tokens) & {"цена", "цены", "стоимость", "сколько", "стоит", "прайс"})
         is_contact_intent = bool(set(query_tokens) & {"контакты", "телефон", "адрес", "график", "время", "режим"})
         is_service_intent = bool(set(query_tokens) & {"услуга", "услуги", "печь", "печи", "сауна", "баня"})
+        is_company_intent = bool(
+            set(query_tokens)
+            & {"компания", "компании", "фирма", "бренд", "о", "вас", "кто", "расскажи", "информация"}
+        )
         for block in blocks:
             haystack = " ".join([block.category, block.title, block.content]).casefold()
             score = 0
@@ -50,6 +54,8 @@ class KnowledgeRepository:
                 score += 4
             if is_service_intent and block.category == "services":
                 score += 3
+            if is_company_intent and block.category in {"company_info", "faq"}:
+                score += 5
             if score > 0:
                 scored_blocks.append((score, block))
 
@@ -153,6 +159,12 @@ class KnowledgeRepository:
         # Contacts / schedule intent
         if token_set & {"контакты", "телефон", "адрес", "график", "время", "режим"}:
             picked = by_categories(("contacts", "address", "schedule", "company_info"))
+            if picked:
+                return picked
+
+        # Company intent
+        if token_set & {"компания", "компании", "бренд", "фирма", "кто", "вас", "о"}:
+            picked = by_categories(("company_info", "faq", "services"))
             if picked:
                 return picked
 

@@ -73,6 +73,16 @@ class TelegramMessageHandler:
             user_text=user_text,
         )
         telegram_client = await self._resolve_telegram_client_for_context(dialogue_context)
+        if self._is_start_command(user_text):
+            await self._finalize_reply(
+                telegram_client=telegram_client,
+                chat_id=chat_id,
+                message_id=message_id,
+                dialogue_context=dialogue_context,
+                reply=settings.telegram_start_message,
+                source=source,
+            )
+            return {"ok": True, "mode": "start_message"}
         model_context = await self._dialogue_storage_service.get_model_context(
             context=dialogue_context,
             user_text=user_text,
@@ -289,3 +299,7 @@ class TelegramMessageHandler:
     def _looks_like_waiting_placeholder(self, text: str) -> bool:
         normalized = " ".join(text.casefold().split())
         return any(normalized.startswith(prefix) for prefix in WAITING_PLACEHOLDER_PREFIXES)
+
+    def _is_start_command(self, text: str) -> bool:
+        normalized = text.strip().casefold()
+        return normalized == "/start" or normalized.startswith("/start@")

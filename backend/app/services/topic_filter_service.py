@@ -23,6 +23,7 @@ class TopicFilterService:
         normalized = " ".join(user_text.casefold().split())
         if not normalized:
             return self._reject("empty_message", business_context)
+        user_tokens = self._extract_tokens(normalized)
 
         if self._looks_like_memory_request(normalized):
             return TopicFilterResult(is_allowed=True, reason="memory_request")
@@ -38,15 +39,17 @@ class TopicFilterService:
             return self._reject("prompt_injection", business_context)
 
         business_hints = self._business_hints(business_context)
-        has_business_hint = self._contains_any(normalized, business_hints)
+        has_business_hint = self._contains_any(normalized, business_hints) or bool(user_tokens & business_hints)
 
-        if self._contains_any(normalized, self._forbidden_markers(business_context)) and not has_business_hint:
-            return self._reject("forbidden_topic", business_context)
+        if self._has_generic_business_intent(normalized, user_tokens):
+            has_business_hint = True
 
-        if self._contains_any(normalized, self._obvious_offtopic_markers()) and not has_business_hint:
+        obvious_offtopic_markers = self._obvious_offtopic_markers()
+        obvious_offtopic_hits = self._count_token_hits(user_tokens, obvious_offtopic_markers)
+        if (obvious_offtopic_hits >= 1 or self._contains_any(normalized, obvious_offtopic_markers)) and not has_business_hint:
             return self._reject("obvious_offtopic", business_context)
 
-        if self._contains_any(normalized, self._small_talk_markers()) and not has_business_hint:
+        if self._contains_any(normalized, self._small_talk_markers()) and not has_business_hint and len(user_tokens) <= 6:
             return self._reject("small_talk", business_context)
 
         return TopicFilterResult(is_allowed=True, reason="allowed")
@@ -137,3 +140,35 @@ class TopicFilterService:
 
     def _extract_tokens(self, text: str) -> set[str]:
         return set(re.findall(r"[A-Za-zА-Яа-яЁё0-9]{3,}", text.casefold()))
+
+    def _count_token_hits(self, user_tokens: set[str], markers: set[str]) -> int:
+        if not user_tokens or not markers:
+            return 0
+        return sum(1 for token in user_tokens if token in markers)
+
+    def _has_generic_business_intent(self, normalized: str, user_tokens: set[str]) -> bool:
+        generic_markers = {
+            "записаться",
+            "запись",
+            "стоимость",
+            "цена",
+            "сколько",
+            "услуга",
+            "услуги",
+            "врач",
+            "врачи",
+            "консультация",
+            "прием",
+            "адрес",
+            "график",
+            "режим",
+            "время",
+            "контакты",
+            "телефон",
+            "номер",
+            "заявка",
+            "менеджер",
+        }
+        if user_tokens & generic_markers:
+            return True
+        return any(marker in normalized for marker in ("хочу запис", "как запис", "сколько стоит", "какая цена"))

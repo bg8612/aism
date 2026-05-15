@@ -1,12 +1,74 @@
 ﻿from __future__ import annotations
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.bot import Bot
+from app.models.knowledge_block import KnowledgeBlock
 
 
 class BotRepository:
+    async def resolve_for_global_telegram(
+        self,
+        session: AsyncSession,
+        *,
+        preferred_name: str,
+        preferred_username: str | None,
+    ) -> Bot:
+        # 1) Explicit username mapping has top priority.
+        if preferred_username:
+            by_username = await session.scalar(
+                select(Bot).where(Bot.telegram_bot_username == preferred_username).limit(1)
+            )
+            if by_username is not None:
+                if not by_username.is_active:
+                    by_username.is_active = True
+                if by_username.name != preferred_name:
+                    by_username.name = preferred_name
+                return by_username
+
+        # 2) Exact bot name match.
+        by_name = await session.scalar(select(Bot).where(Bot.name == preferred_name).limit(1))
+        if by_name is not None:
+            if preferred_username and by_name.telegram_bot_username != preferred_username:
+                by_name.telegram_bot_username = preferred_username
+            if not by_name.is_active:
+                by_name.is_active = True
+            return by_name
+
+        # 3) Single active bot: use it (safe default for single-token deployment).
+        active_bots = list(
+            (
+                await session.scalars(
+                    select(Bot).where(Bot.is_active.is_(True)).order_by(Bot.created_at.asc(), Bot.id.asc())
+                )
+            ).all()
+        )
+        if len(active_bots) == 1:
+            return active_bots[0]
+
+        # 4) Pick active bot with the largest active knowledge base.
+        kb_rows = (
+            await session.execute(
+                select(Bot, func.count(KnowledgeBlock.id).label("kb_count"))
+                .outerjoin(
+                    KnowledgeBlock,
+                    (KnowledgeBlock.bot_id == Bot.id) & (KnowledgeBlock.is_active.is_(True)),
+                )
+                .where(Bot.is_active.is_(True))
+                .group_by(Bot.id)
+                .order_by(func.count(KnowledgeBlock.id).desc(), Bot.created_at.asc(), Bot.id.asc())
+            )
+        ).all()
+        if kb_rows and (kb_rows[0].kb_count or 0) > 0:
+            return kb_rows[0].Bot
+
+        # 5) Fallback: create new bot record.
+        bot = Bot(name=preferred_name, telegram_bot_username=preferred_username, is_active=True)
+        session.add(bot)
+        await session.flush()
+        return bot
+
     async def list_bots(self, session: AsyncSession) -> list[Bot]:
         result = await session.scalars(select(Bot).order_by(Bot.created_at.desc(), Bot.id.desc()))
         return list(result.all())
@@ -67,23 +129,8 @@ class BotRepository:
         name: str,
         telegram_bot_username: str | None,
     ) -> Bot:
-        statement = select(Bot)
-        if telegram_bot_username:
-            statement = statement.where(Bot.telegram_bot_username == telegram_bot_username)
-        else:
-            statement = statement.where(Bot.name == name)
-
-        bot = await session.scalar(statement.limit(1))
-        if bot is not None:
-            if bot.name != name:
-                bot.name = name
-            if telegram_bot_username and bot.telegram_bot_username != telegram_bot_username:
-                bot.telegram_bot_username = telegram_bot_username
-            if not bot.is_active:
-                bot.is_active = True
-            return bot
-
-        bot = Bot(name=name, telegram_bot_username=telegram_bot_username, is_active=True)
-        session.add(bot)
-        await session.flush()
-        return bot
+        return await self.resolve_for_global_telegram(
+            session,
+            preferred_name=name,
+            preferred_username=telegram_bot_username,
+        )

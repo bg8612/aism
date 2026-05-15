@@ -88,3 +88,13 @@ class TelegramClient:
             response.raise_for_status()
             data = response.json()
             return data.get("result") or []
+
+    async def send_chat_action(self, chat_id: int, action: str = "typing") -> dict:
+        payload: dict[str, object] = {
+            "chat_id": chat_id,
+            "action": action,
+        }
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(f"{self._base_url}/sendChatAction", json=payload)
+            response.raise_for_status()
+            return response.json()

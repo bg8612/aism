@@ -45,6 +45,9 @@ class KnowledgeRepository:
                 scored_blocks.append((score, block))
 
         if not scored_blocks:
+            category_fallback = self._fallback_by_intent(blocks=blocks, query_tokens=query_tokens, limit=limit)
+            if category_fallback:
+                return category_fallback
             return blocks[:limit]
 
         scored_blocks.sort(key=lambda item: item[0], reverse=True)
@@ -112,3 +115,36 @@ class KnowledgeRepository:
             seen.add(token)
             result.append(token)
         return result
+
+    def _fallback_by_intent(
+        self,
+        *,
+        blocks: list[KnowledgeBlock],
+        query_tokens: list[str],
+        limit: int,
+    ) -> list[KnowledgeBlock]:
+        token_set = set(query_tokens)
+
+        def by_categories(categories: tuple[str, ...]) -> list[KnowledgeBlock]:
+            picked = [b for b in blocks if b.category in categories]
+            return picked[:limit]
+
+        # Price intent
+        if token_set & {"цена", "цены", "стоимость", "сколько", "скока", "стоит", "прайс"}:
+            picked = by_categories(("prices", "services", "faq"))
+            if picked:
+                return picked
+
+        # Appointment / lead intent
+        if token_set & {"запись", "записаться", "заказ", "купить", "оформить", "заявка"}:
+            picked = by_categories(("services", "faq", "contacts", "rules"))
+            if picked:
+                return picked
+
+        # Contacts / schedule intent
+        if token_set & {"контакты", "телефон", "адрес", "график", "время", "режим"}:
+            picked = by_categories(("contacts", "address", "schedule", "company_info"))
+            if picked:
+                return picked
+
+        return []

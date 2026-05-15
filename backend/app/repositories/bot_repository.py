@@ -15,6 +15,21 @@ class BotRepository:
         preferred_name: str,
         preferred_username: str | None,
     ) -> Bot:
+        kb_rows = (
+            await session.execute(
+                select(Bot, func.count(KnowledgeBlock.id).label("kb_count"))
+                .outerjoin(
+                    KnowledgeBlock,
+                    (KnowledgeBlock.bot_id == Bot.id) & (KnowledgeBlock.is_active.is_(True)),
+                )
+                .where(Bot.is_active.is_(True))
+                .group_by(Bot.id)
+                .order_by(func.count(KnowledgeBlock.id).desc(), Bot.created_at.asc(), Bot.id.asc())
+            )
+        ).all()
+        kb_count_by_bot_id = {row.Bot.id: int(row.kb_count or 0) for row in kb_rows}
+        best_kb_bot = next((row.Bot for row in kb_rows if int(row.kb_count or 0) > 0), None)
+
         # 1) Explicit username mapping has top priority.
         if preferred_username:
             by_username = await session.scalar(
@@ -30,6 +45,9 @@ class BotRepository:
         # 2) Exact bot name match.
         by_name = await session.scalar(select(Bot).where(Bot.name == preferred_name).limit(1))
         if by_name is not None:
+            by_name_kb_count = kb_count_by_bot_id.get(by_name.id, 0)
+            if by_name_kb_count == 0 and best_kb_bot is not None and best_kb_bot.id != by_name.id:
+                return best_kb_bot
             if preferred_username and by_name.telegram_bot_username != preferred_username:
                 by_name.telegram_bot_username = preferred_username
             if not by_name.is_active:
@@ -48,18 +66,6 @@ class BotRepository:
             return active_bots[0]
 
         # 4) Pick active bot with the largest active knowledge base.
-        kb_rows = (
-            await session.execute(
-                select(Bot, func.count(KnowledgeBlock.id).label("kb_count"))
-                .outerjoin(
-                    KnowledgeBlock,
-                    (KnowledgeBlock.bot_id == Bot.id) & (KnowledgeBlock.is_active.is_(True)),
-                )
-                .where(Bot.is_active.is_(True))
-                .group_by(Bot.id)
-                .order_by(func.count(KnowledgeBlock.id).desc(), Bot.created_at.asc(), Bot.id.asc())
-            )
-        ).all()
         if kb_rows and (kb_rows[0].kb_count or 0) > 0:
             return kb_rows[0].Bot
 

@@ -1,23 +1,40 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
+{% block title %}Лиды — {{ bot.name }}{% endblock %}
 {% block content %}
-<div class="card"><a class="btn btn-secondary" href="/admin/bots/{{ bot.id }}">Назад к боту</a></div>
-<div class="card">
-  <h1>Лиды: {{ bot.name }}</h1>
-  <table>
-    <thead><tr><th>ID</th><th>created_at</th><th>status</th><th>lead_type</th><th>summary</th><th>conversation</th><th>end_user</th><th>fields</th></tr></thead>
-    <tbody>
+<div class="space-y-4">
+  <div class="flex items-center gap-2"><a class="ui-btn-secondary" href="/admin/bots/{{ bot.id }}">Назад к боту</a></div>
+
+  <div class="ui-card p-6">
+    <h1 class="text-xl font-semibold text-slate-900">Лиды: {{ bot.name }}</h1>
+    <p class="text-sm text-slate-500 mt-1">Список заявок, собранных ботом в чатах.</p>
+  </div>
+
+  <div class="ui-card overflow-hidden">
+    <table class="w-full ui-table">
+      <thead><tr><th>ID</th><th>Создан</th><th>Статус</th><th>Тип</th><th>Сводка</th><th>Conversation</th><th>User</th><th>Поля</th></tr></thead>
+      <tbody>
       {% for lead in leads %}
       <tr>
-        <td>{{ lead.id }}</td><td>{{ lead.created_at }}</td><td>{{ lead.status }}</td><td>{{ lead.lead_type }}</td><td>{{ lead.summary }}</td>
-        <td>{{ lead.conversation_id }}</td><td>{{ lead.end_user_id }}</td>
+        <td>{{ lead.id }}</td>
+        <td>{{ lead.created_at }}</td>
+        <td>{{ lead.status }}</td>
+        <td>{{ lead.lead_type or "—" }}</td>
+        <td>{{ lead.summary or "—" }}</td>
+        <td>{{ lead.conversation_id }}</td>
+        <td>{{ lead.end_user_id }}</td>
         <td>
-          {% for fv in lead.field_values %}
-            <div>{{ fv.field_key }}: {{ fv.value_normalized or fv.value_raw }}</div>
-          {% endfor %}
+          {% if lead.field_values %}
+            {% for fv in lead.field_values %}
+              <div class="text-xs text-slate-600">{{ fv.field_key }}: {{ fv.value_normalized or fv.value_raw }}</div>
+            {% endfor %}
+          {% else %}
+            <span class="text-xs text-slate-500">—</span>
+          {% endif %}
         </td>
       </tr>
       {% endfor %}
-    </tbody>
-  </table>
+      </tbody>
+    </table>
+  </div>
 </div>
 {% endblock %}

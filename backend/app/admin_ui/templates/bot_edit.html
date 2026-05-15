@@ -1,36 +1,85 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
+{% block title %}Бот #{{ bot.id }} — AISM Admin{% endblock %}
 {% block content %}
-<div class="card nav">
-  <a class="btn btn-secondary" href="/admin/bots">К списку</a>
-  <a class="btn btn-secondary" href="/admin/bots/{{ bot.id }}/knowledge">База знаний</a>
-  <a class="btn btn-secondary" href="/admin/bots/{{ bot.id }}/fields">Поля</a>
-  <a class="btn btn-secondary" href="/admin/bots/{{ bot.id }}/questions">Вопросы</a>
-  <a class="btn btn-secondary" href="/admin/bots/{{ bot.id }}/leads">Лиды</a>
-  <a class="btn btn-secondary" href="/admin/bots/{{ bot.id }}/human-questions">Human вопросы</a>
-</div>
-<div class="card">
-  <h1>Бот #{{ bot.id }}</h1>
-  <form method="post" action="/admin/bots/{{ bot.id }}">
-    <div class="row">
+<div class="space-y-4">
+  <div class="flex flex-wrap items-center gap-2">
+    <a class="ui-btn-secondary" href="/admin/bots">К списку ботов</a>
+    <a class="ui-btn-secondary" href="/admin/bots/{{ bot.id }}/knowledge">База знаний</a>
+    <a class="ui-btn-secondary" href="/admin/bots/{{ bot.id }}/fields">Поля заявки</a>
+    <a class="ui-btn-secondary" href="/admin/bots/{{ bot.id }}/questions">Вопросы</a>
+    <a class="ui-btn-secondary" href="/admin/bots/{{ bot.id }}/leads">Лиды</a>
+    <a class="ui-btn-secondary" href="/admin/bots/{{ bot.id }}/human-questions">Вопросы менеджеру</a>
+  </div>
+
+  <div class="ui-card p-6">
+    <h1 class="text-xl font-semibold text-slate-900">Бот #{{ bot.id }}</h1>
+    <p class="text-sm text-slate-500 mt-1">Основные параметры и бизнес-настройки AI-менеджера.</p>
+
+    <form method="post" action="/admin/bots/{{ bot.id }}" class="mt-5 space-y-5">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="ui-label">Название</label>
+          <input class="ui-input" name="name" value="{{ bot.name }}" required />
+        </div>
+        <div>
+          <label class="ui-label">Telegram username</label>
+          <input class="ui-input" name="telegram_username" value="{{ channel.bot_username if channel else bot.telegram_bot_username or '' }}" />
+        </div>
+      </div>
+
       <div>
-        <label>Название</label><input name="name" value="{{ bot.name }}" required>
-        <label>Активен</label><input type="checkbox" name="is_active" {% if bot.is_active %}checked{% endif %}>
-        <label>Telegram username</label><input name="telegram_username" value="{{ channel.bot_username if channel else bot.telegram_bot_username or '' }}">
-        <label>Новый Telegram token (необязательно)</label><input name="telegram_token">
+        <label class="ui-label">Новый Telegram token</label>
+        <input class="ui-input" name="telegram_token" placeholder="Оставьте пустым, чтобы не менять" />
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="ui-label">Название бизнеса</label>
+          <input class="ui-input" name="business_name" value="{{ settings_obj.business_name }}" required />
+        </div>
+        <div class="space-y-3 pt-1">
+          <label class="inline-flex items-center gap-2 text-sm text-slate-700">
+            <input type="checkbox" name="is_active" {% if bot.is_active %}checked{% endif %}>
+            <span>Бот активен</span>
+          </label>
+          <label class="inline-flex items-center gap-2 text-sm text-slate-700">
+            <input type="checkbox" name="answer_only_from_knowledge_base" {% if settings_obj.answer_only_from_knowledge_base %}checked{% endif %}>
+            <span>Отвечать только по базе знаний</span>
+          </label>
+          <label class="inline-flex items-center gap-2 text-sm text-slate-700">
+            <input type="checkbox" name="collect_leads" {% if settings_obj.collect_leads %}checked{% endif %}>
+            <span>Собирать лиды</span>
+          </label>
+        </div>
+      </div>
+
+      <div>
+        <label class="ui-label">Описание бизнеса</label>
+        <textarea class="ui-input min-h-[100px]" name="business_description">{{ settings_obj.business_description or '' }}</textarea>
       </div>
       <div>
-        <label>Business name</label><input name="business_name" value="{{ settings_obj.business_name }}" required>
-        <label>answer_only_from_knowledge_base</label><input type="checkbox" name="answer_only_from_knowledge_base" {% if settings_obj.answer_only_from_knowledge_base %}checked{% endif %}>
-        <label>collect_leads</label><input type="checkbox" name="collect_leads" {% if settings_obj.collect_leads %}checked{% endif %}>
+        <label class="ui-label">Разрешенные темы</label>
+        <textarea class="ui-input min-h-[90px]" name="allowed_topics">{{ settings_obj.allowed_topics or '' }}</textarea>
       </div>
-    </div>
-    <label>Business description</label><textarea name="business_description">{{ settings_obj.business_description or '' }}</textarea>
-    <label>Allowed topics</label><textarea name="allowed_topics">{{ settings_obj.allowed_topics or '' }}</textarea>
-    <label>Forbidden topics</label><textarea name="forbidden_topics">{{ settings_obj.forbidden_topics or '' }}</textarea>
-    <label>Offtopic message</label><textarea name="offtopic_message">{{ settings_obj.offtopic_message }}</textarea>
-    <label>Fallback message</label><textarea name="fallback_message">{{ settings_obj.fallback_message }}</textarea>
-    <label>Human transfer message</label><textarea name="human_transfer_message">{{ settings_obj.human_transfer_message }}</textarea>
-    <button type="submit">Сохранить</button>
-  </form>
+      <div>
+        <label class="ui-label">Запрещенные темы</label>
+        <textarea class="ui-input min-h-[90px]" name="forbidden_topics">{{ settings_obj.forbidden_topics or '' }}</textarea>
+      </div>
+      <div>
+        <label class="ui-label">Сообщение при оффтопе</label>
+        <textarea class="ui-input min-h-[90px]" name="offtopic_message">{{ settings_obj.offtopic_message }}</textarea>
+      </div>
+      <div>
+        <label class="ui-label">Fallback-сообщение</label>
+        <textarea class="ui-input min-h-[90px]" name="fallback_message">{{ settings_obj.fallback_message }}</textarea>
+      </div>
+      <div>
+        <label class="ui-label">Сообщение передачи менеджеру</label>
+        <textarea class="ui-input min-h-[90px]" name="human_transfer_message">{{ settings_obj.human_transfer_message }}</textarea>
+      </div>
+
+      <button type="submit" class="ui-btn-primary">Сохранить изменения</button>
+    </form>
+  </div>
 </div>
 {% endblock %}

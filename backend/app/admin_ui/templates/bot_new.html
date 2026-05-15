@@ -1,13 +1,31 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
+{% block title %}Новый бот — AISM Admin{% endblock %}
 {% block content %}
-<div class="card">
-  <h1>Новый бот</h1>
-  <form method="post" action="/admin/bots/new">
-    <label>Название</label><input name="name" required>
-    <label>Telegram username</label><input name="telegram_username">
-    <label>Telegram token</label><input name="telegram_token">
-    <button type="submit">Создать</button>
-  </form>
-  <a class="btn btn-secondary" href="/admin/bots">Назад</a>
+<div class="max-w-3xl space-y-4">
+  <div class="flex items-center gap-2">
+    <a class="ui-btn-secondary" href="/admin/bots">Назад к списку</a>
+  </div>
+
+  <div class="ui-card p-6">
+    <h1 class="text-xl font-semibold text-slate-900">Создание нового бота</h1>
+    <p class="text-sm text-slate-500 mt-1">После создания можно сразу открыть детальные настройки бизнеса.</p>
+
+    <form method="post" action="/admin/bots/new" class="mt-5 space-y-4">
+      <div>
+        <label class="ui-label" for="name">Название бота</label>
+        <input class="ui-input" id="name" name="name" required />
+      </div>
+      <div>
+        <label class="ui-label" for="telegram_username">Telegram username</label>
+        <input class="ui-input" id="telegram_username" name="telegram_username" placeholder="например: my_company_bot" />
+      </div>
+      <div>
+        <label class="ui-label" for="telegram_token">Telegram token</label>
+        <input class="ui-input" id="telegram_token" name="telegram_token" placeholder="123456:ABC..." />
+        <p class="ui-help">Можно оставить пустым и добавить позже.</p>
+      </div>
+      <button type="submit" class="ui-btn-primary">Создать</button>
+    </form>
+  </div>
 </div>
 {% endblock %}

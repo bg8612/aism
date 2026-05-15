@@ -1,26 +1,59 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="ru">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>AISM Admin</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}AISM — Админ-панель{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            border: '#e5e7eb',
+            input: '#e5e7eb',
+            ring: '#111827',
+            background: '#f8fafc',
+            foreground: '#0f172a',
+            card: '#ffffff',
+            muted: '#f1f5f9',
+            primary: '#111827'
+          },
+          boxShadow: {
+            soft: '0 1px 2px 0 rgb(15 23 42 / 0.06), 0 1px 3px 0 rgb(15 23 42 / 0.04)'
+          }
+        }
+      }
+    }
+  </script>
   <style>
-    body { font-family: "Segoe UI", Arial, sans-serif; margin: 24px; background: #f6f8fb; color: #1d2433; }
-    .wrap { max-width: 1100px; margin: 0 auto; }
-    .card { background: #fff; border: 1px solid #dbe2ef; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
-    input, textarea, select { width: 100%; padding: 8px; margin: 4px 0 10px; border: 1px solid #cfd8ea; border-radius: 8px; }
-    textarea { min-height: 90px; }
-    button, .btn { background: #1447e6; color: #fff; border: none; border-radius: 8px; padding: 8px 12px; cursor: pointer; text-decoration: none; display: inline-block; }
-    .btn-secondary { background: #55627a; }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { border-bottom: 1px solid #e6eaf2; padding: 8px; text-align: left; vertical-align: top; }
-    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    .nav a { margin-right: 8px; }
+    .ui-card { @apply bg-card border border-border rounded-xl shadow-soft; }
+    .ui-btn { @apply inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors h-9 px-4 py-2; }
+    .ui-btn-primary { @apply ui-btn bg-slate-900 text-white hover:bg-slate-800; }
+    .ui-btn-secondary { @apply ui-btn border border-border bg-white text-slate-700 hover:bg-slate-50; }
+    .ui-btn-danger { @apply ui-btn border border-red-200 text-red-700 bg-red-50 hover:bg-red-100; }
+    .ui-input { @apply w-full rounded-md border border-input bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-900/15; }
+    .ui-label { @apply block text-sm font-medium text-slate-700 mb-1.5; }
+    .ui-help { @apply text-xs text-slate-500 mt-1; }
+    .ui-table th { @apply text-xs font-semibold uppercase tracking-wide text-slate-500 px-4 py-3 bg-slate-50 border-b border-border; }
+    .ui-table td { @apply text-sm text-slate-700 px-4 py-3 border-b border-border align-top; }
+    .ui-badge { @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium border; }
+    .ui-badge-ok { @apply ui-badge border-emerald-200 bg-emerald-50 text-emerald-700; }
+    .ui-badge-off { @apply ui-badge border-slate-200 bg-slate-100 text-slate-600; }
   </style>
 </head>
-<body>
-<div class="wrap">
-  {% block content %}{% endblock %}
-</div>
+<body class="bg-background text-foreground min-h-screen">
+  <header class="border-b border-border bg-white/90 backdrop-blur sticky top-0 z-20">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <div class="h-7 w-7 rounded-md bg-slate-900 text-white text-xs font-bold flex items-center justify-center">AI</div>
+        <span class="text-sm font-semibold text-slate-800">AISM Admin</span>
+      </div>
+      <div class="text-xs text-slate-500">Управление ботами и бизнес-логикой</div>
+    </div>
+  </header>
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    {% block content %}{% endblock %}
+  </main>
 </body>
 </html>

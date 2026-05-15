@@ -1,31 +1,53 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
+{% block title %}База знаний — {{ bot.name }}{% endblock %}
 {% block content %}
-<div class="card"><a class="btn btn-secondary" href="/admin/bots/{{ bot.id }}">Назад к боту</a></div>
-<div class="card">
-  <h1>База знаний: {{ bot.name }}</h1>
-  <form method="post" action="/admin/bots/{{ bot.id }}/knowledge">
-    <label>Категория</label>
-    <select name="category">
-      <option>company_info</option><option>services</option><option>prices</option><option>doctors</option><option>address</option>
-      <option>schedule</option><option>faq</option><option>limitations</option><option>contacts</option><option>rules</option>
-    </select>
-    <label>Title</label><input name="title" required>
-    <label>Content</label><textarea name="content" required></textarea>
-    <button type="submit">Добавить блок</button>
-  </form>
-</div>
-<div class="card">
-  <table><thead><tr><th>ID</th><th>Category</th><th>Title</th><th>Active</th><th></th></tr></thead><tbody>
-    {% for item in items %}
-    <tr>
-      <td>{{ item.id }}</td><td>{{ item.category }}</td><td>{{ item.title }}</td><td>{{ item.is_active }}</td>
-      <td>
-        {% if item.is_active %}
-        <form method="post" action="/admin/knowledge/{{ item.id }}/disable"><button type="submit">Отключить</button></form>
-        {% endif %}
-      </td>
-    </tr>
-    {% endfor %}
-  </tbody></table>
+<div class="space-y-4">
+  <div class="flex items-center gap-2"><a class="ui-btn-secondary" href="/admin/bots/{{ bot.id }}">Назад к боту</a></div>
+
+  <div class="ui-card p-6">
+    <h1 class="text-xl font-semibold text-slate-900">База знаний: {{ bot.name }}</h1>
+    <p class="text-sm text-slate-500 mt-1">Добавляйте только подтвержденные бизнес-данные.</p>
+    <form method="post" action="/admin/bots/{{ bot.id }}/knowledge" class="mt-5 space-y-4">
+      <div>
+        <label class="ui-label">Категория</label>
+        <select class="ui-input" name="category">
+          <option>company_info</option><option>services</option><option>prices</option><option>doctors</option><option>address</option>
+          <option>schedule</option><option>faq</option><option>limitations</option><option>contacts</option><option>rules</option>
+        </select>
+      </div>
+      <div>
+        <label class="ui-label">Заголовок</label>
+        <input class="ui-input" name="title" required />
+      </div>
+      <div>
+        <label class="ui-label">Содержимое</label>
+        <textarea class="ui-input min-h-[120px]" name="content" required></textarea>
+      </div>
+      <button type="submit" class="ui-btn-primary">Добавить блок</button>
+    </form>
+  </div>
+
+  <div class="ui-card overflow-hidden">
+    <table class="w-full ui-table">
+      <thead><tr><th>ID</th><th>Категория</th><th>Заголовок</th><th>Статус</th><th class="text-right">Действие</th></tr></thead>
+      <tbody>
+      {% for item in items %}
+      <tr>
+        <td>{{ item.id }}</td>
+        <td>{{ item.category }}</td>
+        <td class="font-medium text-slate-900">{{ item.title }}</td>
+        <td>{% if item.is_active %}<span class="ui-badge-ok">Активен</span>{% else %}<span class="ui-badge-off">Отключен</span>{% endif %}</td>
+        <td class="text-right">
+          {% if item.is_active %}
+          <form method="post" action="/admin/knowledge/{{ item.id }}/disable" class="inline">
+            <button type="submit" class="ui-btn-danger">Отключить</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 {% endblock %}

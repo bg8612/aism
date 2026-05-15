@@ -1,17 +1,31 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
+{% block title %}Вопросы менеджеру — {{ bot.name }}{% endblock %}
 {% block content %}
-<div class="card"><a class="btn btn-secondary" href="/admin/bots/{{ bot.id }}">Назад к боту</a></div>
-<div class="card">
-  <h1>Human questions: {{ bot.name }}</h1>
-  <table>
-    <thead><tr><th>ID</th><th>created_at</th><th>text</th><th>reason</th><th>status</th><th>conversation</th><th>lead</th></tr></thead>
-    <tbody>
+<div class="space-y-4">
+  <div class="flex items-center gap-2"><a class="ui-btn-secondary" href="/admin/bots/{{ bot.id }}">Назад к боту</a></div>
+
+  <div class="ui-card p-6">
+    <h1 class="text-xl font-semibold text-slate-900">Вопросы менеджеру: {{ bot.name }}</h1>
+    <p class="text-sm text-slate-500 mt-1">Запросы, которые бот не должен закрывать самостоятельно.</p>
+  </div>
+
+  <div class="ui-card overflow-hidden">
+    <table class="w-full ui-table">
+      <thead><tr><th>ID</th><th>Создан</th><th>Текст</th><th>Причина</th><th>Статус</th><th>Conversation</th><th>Lead</th></tr></thead>
+      <tbody>
       {% for item in questions %}
       <tr>
-        <td>{{ item.id }}</td><td>{{ item.created_at }}</td><td>{{ item.question_text }}</td><td>{{ item.reason }}</td><td>{{ item.status }}</td><td>{{ item.conversation_id }}</td><td>{{ item.lead_id }}</td>
+        <td>{{ item.id }}</td>
+        <td>{{ item.created_at }}</td>
+        <td class="font-medium text-slate-900">{{ item.question_text }}</td>
+        <td>{{ item.reason }}</td>
+        <td>{{ item.status }}</td>
+        <td>{{ item.conversation_id }}</td>
+        <td>{{ item.lead_id or "—" }}</td>
       </tr>
       {% endfor %}
-    </tbody>
-  </table>
+      </tbody>
+    </table>
+  </div>
 </div>
 {% endblock %}

@@ -4,47 +4,128 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{% block title %}AISM — Админ-панель{% endblock %}</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            border: '#e5e7eb',
-            input: '#e5e7eb',
-            ring: '#111827',
-            background: '#f8fafc',
-            foreground: '#0f172a',
-            card: '#ffffff',
-            muted: '#f1f5f9',
-            primary: '#111827'
-          },
-          boxShadow: {
-            soft: '0 1px 2px 0 rgb(15 23 42 / 0.06), 0 1px 3px 0 rgb(15 23 42 / 0.04)'
-          }
-        }
-      }
-    }
-  </script>
   <style>
-    .ui-card { @apply bg-card border border-border rounded-xl shadow-soft; }
-    .ui-btn { @apply inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors h-9 px-4 py-2; }
-    .ui-btn-primary { @apply ui-btn bg-slate-900 text-white hover:bg-slate-800; }
-    .ui-btn-secondary { @apply ui-btn border border-border bg-white text-slate-700 hover:bg-slate-50; }
-    .ui-btn-danger { @apply ui-btn border border-red-200 text-red-700 bg-red-50 hover:bg-red-100; }
-    .ui-input { @apply w-full rounded-md border border-input bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-900/15; }
-    .ui-label { @apply block text-sm font-medium text-slate-700 mb-1.5; }
-    .ui-help { @apply text-xs text-slate-500 mt-1; }
-    .ui-table th { @apply text-xs font-semibold uppercase tracking-wide text-slate-500 px-4 py-3 bg-slate-50 border-b border-border; }
-    .ui-table td { @apply text-sm text-slate-700 px-4 py-3 border-b border-border align-top; }
-    .ui-badge { @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium border; }
-    .ui-badge-ok { @apply ui-badge border-emerald-200 bg-emerald-50 text-emerald-700; }
-    .ui-badge-off { @apply ui-badge border-slate-200 bg-slate-100 text-slate-600; }
+    :root {
+      --bg: #f8fafc;
+      --fg: #0f172a;
+      --card: #ffffff;
+      --border: #e5e7eb;
+      --muted: #64748b;
+      --primary: #0f172a;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--fg); font-family: Inter, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+    a { color: inherit; text-decoration: none; }
+
+    /* Layout */
+    .min-h-screen { min-height: 100vh; }
+    .max-w-7xl { max-width: 1160px; }
+    .max-w-md { max-width: 440px; }
+    .max-w-3xl { max-width: 860px; }
+    .mx-auto { margin-left: auto; margin-right: auto; }
+    .mt-10 { margin-top: 2.5rem; }
+    .mt-5 { margin-top: 1.25rem; }
+    .mt-1 { margin-top: .25rem; }
+    .mb-2 { margin-bottom: .5rem; }
+    .p-6 { padding: 1.5rem; }
+    .py-6 { padding-top: 1.5rem; padding-bottom: 1.5rem; }
+    .px-4 { padding-left: 1rem; padding-right: 1rem; }
+    .space-y-4 > * + * { margin-top: 1rem; }
+    .space-y-5 > * + * { margin-top: 1.25rem; }
+
+    /* Flex/grid */
+    .flex { display: flex; }
+    .inline-flex { display: inline-flex; }
+    .grid { display: grid; }
+    .grid-cols-1 { grid-template-columns: 1fr; }
+    .md\:grid-cols-2 { grid-template-columns: 1fr 1fr; }
+    .items-center { align-items: center; }
+    .items-end { align-items: end; }
+    .justify-between { justify-content: space-between; }
+    .justify-center { justify-content: center; }
+    .gap-2 { gap: .5rem; }
+    .gap-4 { gap: 1rem; }
+    .flex-wrap { flex-wrap: wrap; }
+
+    /* Typography */
+    .text-xs { font-size: 12px; }
+    .text-sm { font-size: 14px; }
+    .text-xl { font-size: 22px; }
+    .text-2xl { font-size: 28px; }
+    .font-medium { font-weight: 500; }
+    .font-semibold { font-weight: 600; }
+    .font-bold { font-weight: 700; }
+    .uppercase { text-transform: uppercase; }
+    .tracking-wide { letter-spacing: .04em; }
+    .text-slate-900 { color: #0f172a; }
+    .text-slate-800 { color: #1e293b; }
+    .text-slate-700 { color: #334155; }
+    .text-slate-600 { color: #475569; }
+    .text-slate-500 { color: #64748b; }
+    .text-red-700 { color: #b91c1c; }
+    .text-white { color: #fff; }
+
+    /* Surfaces */
+    .bg-background { background: var(--bg); }
+    .bg-white { background: #fff; }
+    .bg-white\/90 { background: rgba(255,255,255,.9); }
+    .bg-slate-900 { background: #0f172a; }
+    .bg-slate-50 { background: #f8fafc; }
+    .border { border: 1px solid var(--border); }
+    .border-b { border-bottom: 1px solid var(--border); }
+    .rounded-md { border-radius: 8px; }
+    .rounded-xl { border-radius: 14px; }
+    .rounded-full { border-radius: 999px; }
+    .shadow-soft { box-shadow: 0 1px 2px rgb(15 23 42 / 6%), 0 1px 3px rgb(15 23 42 / 4%); }
+    .overflow-hidden { overflow: hidden; }
+
+    /* Header */
+    .sticky { position: sticky; }
+    .top-0 { top: 0; }
+    .z-20 { z-index: 20; }
+    .h-14 { height: 56px; }
+    .h-7 { height: 28px; }
+    .w-7 { width: 28px; }
+
+    /* UI components */
+    .ui-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 1px 2px rgb(15 23 42 / 6%), 0 1px 3px rgb(15 23 42 / 4%); }
+    .ui-btn { display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; font-size: 14px; font-weight: 500; height: 36px; padding: 0 14px; cursor: pointer; transition: .15s; }
+    .ui-btn-primary { color: #fff; background: #0f172a; border: 1px solid #0f172a; }
+    .ui-btn-primary:hover { background: #1e293b; }
+    .ui-btn-secondary { color: #334155; background: #fff; border: 1px solid var(--border); }
+    .ui-btn-secondary:hover { background: #f8fafc; }
+    .ui-btn-danger { color: #b91c1c; background: #fef2f2; border: 1px solid #fecaca; }
+    .ui-btn-danger:hover { background: #fee2e2; }
+
+    .ui-input { width: 100%; border: 1px solid var(--border); border-radius: 8px; background: #fff; padding: 10px 12px; font-size: 14px; color: #0f172a; outline: none; }
+    .ui-input:focus { border-color: #94a3b8; box-shadow: 0 0 0 3px rgb(15 23 42 / 8%); }
+    textarea.ui-input { min-height: 90px; resize: vertical; }
+    .min-h-\[100px\] { min-height: 100px !important; }
+    .min-h-\[120px\] { min-height: 120px !important; }
+
+    .ui-label { display: block; font-size: 14px; font-weight: 500; color: #334155; margin-bottom: 6px; }
+    .ui-help { font-size: 12px; color: #64748b; margin-top: 6px; }
+
+    .ui-table th { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: #64748b; padding: 12px 14px; background: #f8fafc; border-bottom: 1px solid var(--border); text-align: left; }
+    .ui-table td { font-size: 14px; color: #334155; padding: 12px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    .w-full { width: 100%; }
+    .text-right { text-align: right; }
+    .align-top { vertical-align: top; }
+
+    .ui-badge { display: inline-flex; align-items: center; border-radius: 999px; padding: 2px 8px; font-size: 12px; font-weight: 500; border: 1px solid; }
+    .ui-badge-ok { border-color: #a7f3d0; background: #ecfdf5; color: #047857; }
+    .ui-badge-off { border-color: #cbd5e1; background: #f1f5f9; color: #475569; }
+
+    @media (max-width: 900px) {
+      .md\:grid-cols-2 { grid-template-columns: 1fr; }
+      .text-2xl { font-size: 24px; }
+      .text-xl { font-size: 20px; }
+    }
   </style>
 </head>
 <body class="bg-background text-foreground min-h-screen">
-  <header class="border-b border-border bg-white/90 backdrop-blur sticky top-0 z-20">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
+  <header class="border-b bg-white/90 sticky top-0 z-20">
+    <div class="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
       <div class="flex items-center gap-2">
         <div class="h-7 w-7 rounded-md bg-slate-900 text-white text-xs font-bold flex items-center justify-center">AI</div>
         <span class="text-sm font-semibold text-slate-800">AISM Admin</span>
@@ -52,7 +133,7 @@
       <div class="text-xs text-slate-500">Управление ботами и бизнес-логикой</div>
     </div>
   </header>
-  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+  <main class="max-w-7xl mx-auto px-4 py-6">
     {% block content %}{% endblock %}
   </main>
 </body>

@@ -27,10 +27,12 @@ INVALID_REPLY_FALLBACK = (
 )
 
 INTERNAL_RULE_LEAK_FALLBACK = (
-    "\u042f \u0442\u0435\u043a\u0441\u0442\u043e\u0432\u044b\u0439 \u0430\u0441\u0441\u0438\u0441\u0442\u0435\u043d\u0442 "
-    "\u0432 \u044d\u0442\u043e\u043c \u0431\u043e\u0442\u0435. "
-    "\u041f\u043e\u043c\u043e\u0433\u0430\u044e \u0441 \u0432\u043e\u043f\u0440\u043e\u0441\u0430\u043c\u0438 "
-    "\u0438 \u0437\u0430\u043c\u0435\u0442\u043a\u0430\u043c\u0438 \u0432\u043d\u0443\u0442\u0440\u0438 \u044d\u0442\u043e\u0433\u043e \u0447\u0430\u0442\u0430."
+    "Я помогу по вашему запросу и при необходимости уточню детали у коллег."
+)
+
+MANAGER_STYLE_FALLBACK = (
+    "Давайте подберем лучший вариант под ваш запрос. "
+    "Напишите, пожалуйста, бюджет и параметры, а детали по наличию я уточню у коллег."
 )
 
 MEMORY_SYSTEM_NOTE = (
@@ -134,7 +136,9 @@ class OpenRouterClient:
         if not cleaned:
             return fallback_message
         if self._looks_like_internal_rule_leak(cleaned):
-            return fallback_message
+            return MANAGER_STYLE_FALLBACK
+        if self._looks_robotic_or_invalid(cleaned):
+            return MANAGER_STYLE_FALLBACK
         return cleaned
 
     async def _post_chat_completion(self, payload: dict[str, Any]) -> dict[str, Any]:
@@ -270,3 +274,20 @@ class OpenRouterClient:
             "xml/json",
         ]
         return any(marker in lowered for marker in markers)
+
+    def _looks_robotic_or_invalid(self, text: str) -> bool:
+        lowered = text.casefold().strip()
+        robotic_markers = [
+            "я бот",
+            "я нейросеть",
+            "я ии",
+            "передам менеджеру",
+            "передам ваш вопрос менеджеру",
+            "не удалось получить корректный ответ",
+            "time",
+        ]
+        if lowered in {"time", "тайм", "ok", "none"}:
+            return True
+        if len(lowered) <= 4:
+            return True
+        return any(marker in lowered for marker in robotic_markers)

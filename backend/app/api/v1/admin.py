@@ -118,6 +118,7 @@ async def patch_client(client_id: int, payload: ClientUpdate, session: AsyncSess
         raise HTTPException(status_code=404, detail="Client not found")
     await client_repo.update_client(session, client=client, **payload.model_dump(exclude_unset=True))
     await session.commit()
+    await session.refresh(client)
     return ClientRead.model_validate(client)
 
 
@@ -159,6 +160,7 @@ async def create_bot(payload: BotCreate, session: AsyncSession = Depends(get_db_
         )
         has_token = True
     await session.commit()
+    await session.refresh(bot)
     return _bot_to_schema(bot, has_token=has_token, channel_username=payload.telegram_username)
 
 
@@ -197,6 +199,9 @@ async def patch_bot(bot_id: int, payload: BotUpdate, session: AsyncSession = Dep
         channel.bot_username = payload.telegram_username
 
     await session.commit()
+    await session.refresh(bot)
+    if channel is not None:
+        await session.refresh(channel)
     if channel is None:
         channel = await bot_channel_repo.get_by_bot_id_and_channel(session, bot_id=bot.id, channel_type="telegram")
     return _bot_to_schema(
@@ -211,6 +216,7 @@ async def activate_bot(bot_id: int, session: AsyncSession = Depends(get_db_sessi
     bot = await _bot_or_404(session, bot_id)
     await bot_repo.update_bot(session, bot=bot, is_active=True)
     await session.commit()
+    await session.refresh(bot)
     channel = await bot_channel_repo.get_by_bot_id_and_channel(session, bot_id=bot.id, channel_type="telegram")
     return _bot_to_schema(bot, has_token=bool(channel and channel.bot_token_encrypted), channel_username=channel.bot_username if channel else None)
 
@@ -220,6 +226,7 @@ async def deactivate_bot(bot_id: int, session: AsyncSession = Depends(get_db_ses
     bot = await _bot_or_404(session, bot_id)
     await bot_repo.update_bot(session, bot=bot, is_active=False)
     await session.commit()
+    await session.refresh(bot)
     channel = await bot_channel_repo.get_by_bot_id_and_channel(session, bot_id=bot.id, channel_type="telegram")
     return _bot_to_schema(bot, has_token=bool(channel and channel.bot_token_encrypted), channel_username=channel.bot_username if channel else None)
 
@@ -229,6 +236,7 @@ async def get_bot_settings(bot_id: int, session: AsyncSession = Depends(get_db_s
     bot = await _bot_or_404(session, bot_id)
     settings_obj = await bot_settings_repo.get_or_create_by_bot_id(session, bot_id=bot.id, business_name=bot.name)
     await session.commit()
+    await session.refresh(settings_obj)
     return BotSettingsRead.model_validate(settings_obj)
 
 
@@ -242,6 +250,7 @@ async def patch_bot_settings(
     settings_obj = await bot_settings_repo.get_or_create_by_bot_id(session, bot_id=bot.id, business_name=bot.name)
     await bot_settings_repo.update_settings(session, settings_obj=settings_obj, **payload.model_dump(exclude_unset=True))
     await session.commit()
+    await session.refresh(settings_obj)
     return BotSettingsRead.model_validate(settings_obj)
 
 
@@ -260,6 +269,7 @@ async def create_knowledge(
     await _bot_or_404(session, bot_id)
     block = await knowledge_repo.create(session, bot_id=bot_id, **payload.model_dump())
     await session.commit()
+    await session.refresh(block)
     return KnowledgeBlockRead.model_validate(block)
 
 
@@ -272,6 +282,7 @@ async def patch_knowledge(
     block = await _knowledge_or_404(session, block_id)
     await knowledge_repo.update(session, block=block, **payload.model_dump(exclude_unset=True))
     await session.commit()
+    await session.refresh(block)
     return KnowledgeBlockRead.model_validate(block)
 
 
@@ -280,6 +291,7 @@ async def delete_knowledge(block_id: int, session: AsyncSession = Depends(get_db
     block = await _knowledge_or_404(session, block_id)
     await knowledge_repo.deactivate(session, block=block)
     await session.commit()
+    await session.refresh(block)
     return KnowledgeBlockRead.model_validate(block)
 
 
@@ -294,6 +306,7 @@ async def create_field(bot_id: int, payload: BotFieldCreate, session: AsyncSessi
     await _bot_or_404(session, bot_id)
     field = await bot_field_repo.create(session, bot_id=bot_id, **payload.model_dump())
     await session.commit()
+    await session.refresh(field)
     return BotFieldRead.model_validate(field)
 
 
@@ -302,6 +315,7 @@ async def patch_field(field_id: int, payload: BotFieldUpdate, session: AsyncSess
     field = await _field_or_404(session, field_id)
     await bot_field_repo.update(session, field=field, **payload.model_dump(exclude_unset=True))
     await session.commit()
+    await session.refresh(field)
     return BotFieldRead.model_validate(field)
 
 
@@ -310,6 +324,7 @@ async def delete_field(field_id: int, session: AsyncSession = Depends(get_db_ses
     field = await _field_or_404(session, field_id)
     await bot_field_repo.deactivate(session, field=field)
     await session.commit()
+    await session.refresh(field)
     return BotFieldRead.model_validate(field)
 
 
@@ -331,6 +346,7 @@ async def create_question(
         raise HTTPException(status_code=400, detail="field_id does not belong to this bot")
     question = await bot_question_repo.create(session, bot_id=bot_id, **payload.model_dump())
     await session.commit()
+    await session.refresh(question)
     return BotQuestionRead.model_validate(question)
 
 
@@ -347,6 +363,7 @@ async def patch_question(
             raise HTTPException(status_code=400, detail="field_id does not belong to this bot")
     await bot_question_repo.update(session, question=question, **payload.model_dump(exclude_unset=True))
     await session.commit()
+    await session.refresh(question)
     return BotQuestionRead.model_validate(question)
 
 
@@ -355,6 +372,7 @@ async def delete_question(question_id: int, session: AsyncSession = Depends(get_
     question = await _question_or_404(session, question_id)
     await bot_question_repo.deactivate(session, question=question)
     await session.commit()
+    await session.refresh(question)
     return BotQuestionRead.model_validate(question)
 
 

@@ -1,4 +1,5 @@
-﻿from pydantic_settings import BaseSettings, SettingsConfigDict
+﻿from pydantic import AliasChoices, Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -16,7 +17,10 @@ class Settings(BaseSettings):
     telegram_poll_limit: int = 20
     telegram_waiting_indicator_delay_sec: float = 0.8
     telegram_waiting_indicator_frame_sec: float = 0.9
-    telegram_update_dedupe_ttl_sec: int = 300
+    telegram_update_dedupe_ttl_sec: int = Field(
+        default=300,
+        validation_alias=AliasChoices("TELEGRAM_UPDATE_DEDUPE_TTL_SEC", "TELEGRAM_UPDATE_GUARD_TTL"),
+    )
     telegram_webhook_secret: str = ""
     telegram_webhook_url: str = ""
     admin_api_token: str = ""

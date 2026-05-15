@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import re
 
@@ -103,7 +103,7 @@ class KnowledgeRepository:
         )
 
     def _tokenize(self, text: str) -> list[str]:
-        tokens = re.findall(r"[A-Za-zА-Яа-я0-9]{3,}", text.casefold())
+        tokens = re.findall(r"[A-Za-zА-Яа-яЁё0-9]{3,}", text.casefold())
         seen: set[str] = set()
         result: list[str] = []
         for token in tokens:

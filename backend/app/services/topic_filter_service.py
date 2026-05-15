@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import re
 from dataclasses import dataclass
@@ -136,4 +136,4 @@ class TopicFilterService:
         return any(marker and marker in normalized for marker in markers)
 
     def _extract_tokens(self, text: str) -> set[str]:
-        return set(re.findall(r"[A-Za-zА-Яа-я0-9]{3,}", text.casefold()))
+        return set(re.findall(r"[A-Za-zА-Яа-яЁё0-9]{3,}", text.casefold()))

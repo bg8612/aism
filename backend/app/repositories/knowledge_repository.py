@@ -31,6 +31,9 @@ class KnowledgeRepository:
             return blocks[:limit]
 
         scored_blocks: list[tuple[int, KnowledgeBlock]] = []
+        is_price_intent = bool(set(query_tokens) & {"цена", "цены", "стоимость", "сколько", "стоит", "прайс"})
+        is_contact_intent = bool(set(query_tokens) & {"контакты", "телефон", "адрес", "график", "время", "режим"})
+        is_service_intent = bool(set(query_tokens) & {"услуга", "услуги", "печь", "печи", "сауна", "баня"})
         for block in blocks:
             haystack = " ".join([block.category, block.title, block.content]).casefold()
             score = 0
@@ -41,6 +44,12 @@ class KnowledgeRepository:
                     score += 2
                 if token in block.category.casefold():
                     score += 1
+            if is_price_intent and block.category == "prices":
+                score += 5
+            if is_contact_intent and block.category in {"contacts", "address", "schedule"}:
+                score += 4
+            if is_service_intent and block.category == "services":
+                score += 3
             if score > 0:
                 scored_blocks.append((score, block))
 

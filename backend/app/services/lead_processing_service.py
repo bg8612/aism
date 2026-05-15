@@ -68,6 +68,8 @@ class LeadProcessingService:
                         end_user_id=dialogue_context.end_user_id,
                         lead_type=ai_result.intent,
                     )
+                # Ensure relationship collection is loaded in async-safe way.
+                await session.refresh(lead, attribute_names=["field_values"])
 
                 allowed_field_keys = {field.field_key for field in business_context.bot_fields}
                 for field_key, raw_value in ai_result.lead_fields.items():

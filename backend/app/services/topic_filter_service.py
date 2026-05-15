@@ -84,10 +84,13 @@ class TopicFilterService:
 
     def _obvious_offtopic_markers(self) -> set[str]:
         return {
+            "уравнение",
             "уравнени",
             "реши",
+            "решить",
             "сочинени",
             "президент",
+            "президента",
             "политик",
             "python",
             "код",

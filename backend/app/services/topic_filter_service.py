@@ -20,7 +20,7 @@ class TopicFilterService:
         user_text: str,
         business_context: BusinessContext,
     ) -> TopicFilterResult:
-        normalized = " ".join(user_text.casefold().split())
+        normalized = " ".join(self._normalize_common_typos(user_text.casefold()).split())
         if not normalized:
             return self._reject("empty_message", business_context)
         user_tokens = self._extract_tokens(normalized)
@@ -175,3 +175,9 @@ class TopicFilterService:
         if user_tokens & generic_markers:
             return True
         return any(marker in normalized for marker in ("хочу запис", "как запис", "сколько стоит", "какая цена"))
+
+    def _normalize_common_typos(self, text: str) -> str:
+        text = re.sub(r"\bуен", "цен", text)
+        text = re.sub(r"\bуены", "цены", text)
+        text = re.sub(r"\bуенам", "ценам", text)
+        return text

@@ -121,7 +121,8 @@ class KnowledgeRepository:
         )
 
     def _tokenize(self, text: str) -> list[str]:
-        tokens = re.findall(r"[A-Za-zА-Яа-яЁё0-9]{3,}", text.casefold())
+        normalized_text = self._normalize_common_typos(text.casefold())
+        tokens = re.findall(r"[A-Za-zА-Яа-яЁё0-9]{3,}", normalized_text)
         seen: set[str] = set()
         result: list[str] = []
         for token in tokens:
@@ -130,6 +131,13 @@ class KnowledgeRepository:
             seen.add(token)
             result.append(token)
         return result
+
+    def _normalize_common_typos(self, text: str) -> str:
+        # Common typo around "цена/цены" from adjacent keyboard input.
+        text = re.sub(r"\bуен", "цен", text)
+        text = re.sub(r"\bуены", "цены", text)
+        text = re.sub(r"\bуенам", "ценам", text)
+        return text
 
     def _fallback_by_intent(
         self,

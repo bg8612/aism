@@ -139,7 +139,7 @@ class OpenRouterClient:
             return MANAGER_STYLE_FALLBACK
         if self._looks_robotic_or_invalid(cleaned):
             return MANAGER_STYLE_FALLBACK
-        return cleaned
+        return self._polish_common_typos(cleaned)
 
     async def _post_chat_completion(self, payload: dict[str, Any]) -> dict[str, Any]:
         if not settings.openrouter_api_key:
@@ -291,3 +291,16 @@ class OpenRouterClient:
         if len(lowered) <= 4:
             return True
         return any(marker in lowered for marker in robotic_markers)
+
+    def _polish_common_typos(self, text: str) -> str:
+        replacements = {
+            r"\bо нашу\b": "о нашей",
+            r"\bпо бьенам\b": "по ценам",
+            r"\bя можем\b": "мы можем",
+            r"\bуенам\b": "ценам",
+            r"\bуены\b": "цены",
+        }
+        cleaned = text
+        for pattern, repl in replacements.items():
+            cleaned = re.sub(pattern, repl, cleaned, flags=re.IGNORECASE)
+        return cleaned

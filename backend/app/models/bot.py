@@ -27,3 +27,4 @@ class Bot(TimestampMixin, Base):
     bot_questions = relationship("BotQuestion", back_populates="bot")
     human_questions = relationship("HumanQuestion", back_populates="bot")
     channels = relationship("BotChannel", back_populates="bot")
+    prompts = relationship("BotPrompt", back_populates="bot")

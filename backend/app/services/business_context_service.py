@@ -10,12 +10,14 @@ from app.core.config import settings
 from app.db.session import AsyncSessionLocal
 from app.models.bot import Bot
 from app.models.bot_field import BotField
+from app.models.bot_prompt import BotPrompt
 from app.models.bot_question import BotQuestion
 from app.models.bot_settings import BotSettings
 from app.models.knowledge_block import KnowledgeBlock
 from app.models.lead import Lead
 from app.repositories.bot_field_repository import BotFieldRepository
 from app.repositories.bot_question_repository import BotQuestionRepository
+from app.repositories.bot_prompt_repository import BotPromptRepository
 from app.repositories.bot_repository import BotRepository
 from app.repositories.bot_settings_repository import BotSettingsRepository
 from app.repositories.knowledge_repository import KnowledgeRepository
@@ -32,6 +34,7 @@ class BusinessContext:
     knowledge_blocks: list[KnowledgeBlock]
     bot_fields: list[BotField]
     bot_questions: list[BotQuestion]
+    prompts: list[BotPrompt]
     current_lead: Lead | None
     required_missing_fields: list[BotField]
 
@@ -55,6 +58,7 @@ class BusinessContextService:
         knowledge_repository: KnowledgeRepository | None = None,
         bot_field_repository: BotFieldRepository | None = None,
         bot_question_repository: BotQuestionRepository | None = None,
+        bot_prompt_repository: BotPromptRepository | None = None,
         lead_repository: LeadRepository | None = None,
     ) -> None:
         self._session_factory = session_factory
@@ -63,6 +67,7 @@ class BusinessContextService:
         self._knowledge_repository = knowledge_repository or KnowledgeRepository()
         self._bot_field_repository = bot_field_repository or BotFieldRepository()
         self._bot_question_repository = bot_question_repository or BotQuestionRepository()
+        self._bot_prompt_repository = bot_prompt_repository or BotPromptRepository()
         self._lead_repository = lead_repository or LeadRepository()
 
     async def get_business_context(
@@ -93,6 +98,7 @@ class BusinessContextService:
                 )
                 bot_fields = await self._bot_field_repository.list_active_by_bot_id(session, bot_id=bot.id)
                 bot_questions = await self._bot_question_repository.list_active_by_bot_id(session, bot_id=bot.id)
+                prompts = await self._bot_prompt_repository.get_or_create_defaults(session, bot_id=bot.id)
                 current_lead = await self._lead_repository.get_active_draft_by_conversation_id(
                     session,
                     conversation_id=dialogue_context.conversation_id,
@@ -105,6 +111,7 @@ class BusinessContextService:
                     knowledge_blocks=knowledge_blocks,
                     bot_fields=bot_fields,
                     bot_questions=bot_questions,
+                    prompts=prompts,
                     current_lead=current_lead,
                     required_missing_fields=required_missing_fields,
                 )

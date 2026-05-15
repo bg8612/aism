@@ -66,3 +66,19 @@ class MessageRepository:
         )
         found = await session.scalar(statement)
         return found is not None
+
+    async def list_for_conversation(
+        self,
+        session: AsyncSession,
+        *,
+        conversation_id: int,
+        limit: int = 500,
+    ) -> list[Message]:
+        statement = (
+            select(Message)
+            .where(Message.conversation_id == conversation_id)
+            .order_by(Message.created_at.asc(), Message.id.asc())
+            .limit(limit)
+        )
+        result = await session.scalars(statement)
+        return list(result.all())

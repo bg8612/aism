@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Диалоги — Бот #{{ bot.id }}{% endblock %}
+{% block content %}
+<div class="space-y-4">
+  <div class="flex flex-wrap items-center gap-2">
+    <a class="ui-btn-secondary" href="/admin/bots/{{ bot.id }}">К боту</a>
+    <a class="ui-btn-secondary" href="/admin/bots/{{ bot.id }}/prompts">Промпты</a>
+  </div>
+
+  <div class="ui-card overflow-hidden">
+    <div class="p-6 border-b">
+      <h1 class="text-xl font-semibold text-slate-900">Диалоги бота #{{ bot.id }}</h1>
+      <p class="text-sm text-slate-500 mt-1">Список клиентских переписок.</p>
+    </div>
+    <table class="ui-table w-full">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Клиент</th>
+          <th>Последнее сообщение</th>
+          <th>Статус</th>
+          <th>Summary</th>
+          <th>Лид</th>
+          <th>Вопрос менеджеру</th>
+          <th class="text-right">Действие</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in conversations %}
+        <tr>
+          <td>{{ item.id }}</td>
+          <td>
+            <div class="font-medium text-slate-800">{{ item.end_user.first_name or "—" }} {{ item.end_user.last_name or "" }}</div>
+            <div class="text-xs text-slate-500">@{{ item.end_user.username or "—" }}</div>
+          </td>
+          <td>{{ item.last_message_at or "—" }}</td>
+          <td>{{ item.status }}</td>
+          <td>{{ item.summary or "—" }}</td>
+          <td>{% if item.id in lead_ids %}Да{% else %}Нет{% endif %}</td>
+          <td>{% if item.id in human_ids %}Да{% else %}Нет{% endif %}</td>
+          <td class="text-right"><a class="ui-btn-secondary" href="/admin/conversations/{{ item.id }}">Открыть</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

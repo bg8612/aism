@@ -101,12 +101,28 @@ class OpenRouterClient:
         missing_required_fields: list[str] | None,
     ) -> str:
         fallback_reply = business_context.bot_settings.fallback_message
-        system_prompt = settings.openrouter_business_manager_prompt.replace(
+        prompt_map = {item.prompt_key: item.content for item in business_context.prompts if item.is_active}
+        system_prompt_template = prompt_map.get("manager_system", settings.openrouter_business_manager_prompt)
+        system_prompt = system_prompt_template.replace(
             "{business_name}",
             business_context.bot_settings.business_name,
         )
+        knowledge_instruction = prompt_map.get("knowledge_answer", "")
+        lead_instruction = prompt_map.get("lead_collection", "")
+        fallback_instruction = prompt_map.get("fallback", "")
+        transfer_instruction = prompt_map.get("manager_transfer", "")
         messages: list[dict[str, str]] = [
             {"role": "system", "content": system_prompt},
+            {
+                "role": "system",
+                "content": (
+                    f"Дополнительные инструкции менеджера:\n"
+                    f"- По базе знаний: {knowledge_instruction}\n"
+                    f"- По сбору заявки: {lead_instruction}\n"
+                    f"- Fallback: {fallback_instruction}\n"
+                    f"- Передача вопроса: {transfer_instruction}\n"
+                ).strip(),
+            },
             {"role": "system", "content": self._render_business_context_note(business_context, knowledge_blocks, current_lead_data, missing_required_fields)},
         ]
         if memory_notes:

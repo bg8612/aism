@@ -4,11 +4,32 @@ from datetime import datetime, timezone
 
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models.conversation import Conversation
 
 
 class ConversationRepository:
+    async def list_by_bot_id(self, session: AsyncSession, *, bot_id: int, limit: int = 200) -> list[Conversation]:
+        statement = (
+            select(Conversation)
+            .options(selectinload(Conversation.end_user))
+            .where(Conversation.bot_id == bot_id)
+            .order_by(desc(Conversation.last_message_at), desc(Conversation.updated_at), desc(Conversation.id))
+            .limit(limit)
+        )
+        result = await session.scalars(statement)
+        return list(result.all())
+
+    async def get_by_id(self, session: AsyncSession, *, conversation_id: int) -> Conversation | None:
+        statement = (
+            select(Conversation)
+            .options(selectinload(Conversation.end_user))
+            .where(Conversation.id == conversation_id)
+            .limit(1)
+        )
+        return await session.scalar(statement)
+
     async def get_or_create_active(
         self,
         session: AsyncSession,

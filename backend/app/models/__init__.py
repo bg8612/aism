@@ -2,6 +2,7 @@ from app.models.bot import Bot
 from app.models.bot_channel import BotChannel
 from app.models.bot_field import BotField
 from app.models.bot_question import BotQuestion
+from app.models.bot_prompt import BotPrompt
 from app.models.bot_settings import BotSettings
 from app.models.client import Client
 from app.models.conversation import Conversation
@@ -20,6 +21,7 @@ __all__ = [
     "KnowledgeBlock",
     "BotField",
     "BotQuestion",
+    "BotPrompt",
     "EndUser",
     "Conversation",
     "Message",

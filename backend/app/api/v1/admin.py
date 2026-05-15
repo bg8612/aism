@@ -7,25 +7,33 @@ from app.api.deps import require_admin_token
 from app.db.session import get_db_session
 from app.models.bot import Bot
 from app.models.bot_field import BotField
+from app.models.bot_prompt import BotPrompt
 from app.models.bot_question import BotQuestion
+from app.models.conversation import Conversation
 from app.models.knowledge_block import KnowledgeBlock
 from app.repositories.bot_channel_repository import BotChannelRepository
 from app.repositories.bot_field_repository import BotFieldRepository
+from app.repositories.bot_prompt_repository import BotPromptRepository
 from app.repositories.bot_question_repository import BotQuestionRepository
 from app.repositories.bot_repository import BotRepository
 from app.repositories.bot_settings_repository import BotSettingsRepository
 from app.repositories.client_repository import ClientRepository
+from app.repositories.conversation_repository import ConversationRepository
 from app.repositories.human_question_repository import HumanQuestionRepository
 from app.repositories.knowledge_repository import KnowledgeRepository
 from app.repositories.lead_repository import LeadRepository
+from app.repositories.message_repository import MessageRepository
 from app.schemas.bot_admin import BotCreate, BotRead, BotUpdate
 from app.schemas.bot_field_admin import BotFieldCreate, BotFieldRead, BotFieldUpdate
+from app.schemas.bot_prompt_admin import BotPromptRead, BotPromptUpdate
 from app.schemas.bot_question_admin import BotQuestionCreate, BotQuestionRead, BotQuestionUpdate
 from app.schemas.bot_settings_admin import BotSettingsRead, BotSettingsUpdate
 from app.schemas.client import ClientCreate, ClientRead, ClientUpdate
+from app.schemas.conversation_admin import AdminSendMessageRequest, ConversationDetailRead, ConversationListItem, ConversationMessageRead
 from app.schemas.human_question_admin import HumanQuestionRead
 from app.schemas.knowledge_admin import KnowledgeBlockCreate, KnowledgeBlockRead, KnowledgeBlockUpdate
 from app.schemas.lead_admin import LeadRead
+from app.services.telegram_client import TelegramClient
 from app.services.token_crypto_service import TokenCryptoService
 
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(require_admin_token)])
@@ -33,11 +41,14 @@ router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(requir
 client_repo = ClientRepository()
 bot_repo = BotRepository()
 bot_settings_repo = BotSettingsRepository()
+bot_prompt_repo = BotPromptRepository()
 knowledge_repo = KnowledgeRepository()
 bot_field_repo = BotFieldRepository()
 bot_question_repo = BotQuestionRepository()
 lead_repo = LeadRepository()
 human_question_repo = HumanQuestionRepository()
+conversation_repo = ConversationRepository()
+message_repo = MessageRepository()
 bot_channel_repo = BotChannelRepository()
 token_crypto = TokenCryptoService()
 
@@ -82,6 +93,20 @@ async def _knowledge_or_404(session: AsyncSession, block_id: int) -> KnowledgeBl
     if block is None:
         raise HTTPException(status_code=404, detail="Knowledge block not found")
     return block
+
+
+async def _prompt_or_404(session: AsyncSession, prompt_id: int) -> BotPrompt:
+    prompt = await bot_prompt_repo.get_by_id(session, prompt_id=prompt_id)
+    if prompt is None:
+        raise HTTPException(status_code=404, detail="Prompt not found")
+    return prompt
+
+
+async def _conversation_or_404(session: AsyncSession, conversation_id: int) -> Conversation:
+    conversation = await conversation_repo.get_by_id(session, conversation_id=conversation_id)
+    if conversation is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    return conversation
 
 
 @router.get("/clients", response_model=list[ClientRead])
@@ -159,6 +184,7 @@ async def create_bot(payload: BotCreate, session: AsyncSession = Depends(get_db_
             is_active=True,
         )
         has_token = True
+    await bot_prompt_repo.get_or_create_defaults(session, bot_id=bot.id)
     await session.commit()
     await session.refresh(bot)
     return _bot_to_schema(bot, has_token=has_token, channel_username=payload.telegram_username)
@@ -388,3 +414,115 @@ async def list_human_questions(bot_id: int, session: AsyncSession = Depends(get_
     return [
         HumanQuestionRead.model_validate(item) for item in await human_question_repo.list_by_bot_id(session, bot_id=bot_id)
     ]
+
+
+@router.get("/bots/{bot_id}/prompts", response_model=list[BotPromptRead])
+async def list_bot_prompts(bot_id: int, session: AsyncSession = Depends(get_db_session)) -> list[BotPromptRead]:
+    bot = await _bot_or_404(session, bot_id)
+    prompts = await bot_prompt_repo.get_or_create_defaults(session, bot_id=bot.id)
+    await session.commit()
+    for prompt in prompts:
+        await session.refresh(prompt)
+    return [BotPromptRead.model_validate(item) for item in prompts]
+
+
+@router.patch("/prompts/{prompt_id}", response_model=BotPromptRead)
+async def patch_bot_prompt(
+    prompt_id: int,
+    payload: BotPromptUpdate,
+    session: AsyncSession = Depends(get_db_session),
+) -> BotPromptRead:
+    prompt = await _prompt_or_404(session, prompt_id)
+    await bot_prompt_repo.update(session, prompt=prompt, **payload.model_dump(exclude_unset=True))
+    await session.commit()
+    await session.refresh(prompt)
+    return BotPromptRead.model_validate(prompt)
+
+
+@router.get("/bots/{bot_id}/conversations", response_model=list[ConversationListItem])
+async def list_conversations(bot_id: int, session: AsyncSession = Depends(get_db_session)) -> list[ConversationListItem]:
+    await _bot_or_404(session, bot_id)
+    conversations = await conversation_repo.list_by_bot_id(session, bot_id=bot_id, limit=500)
+    lead_items = await lead_repo.list_by_bot_id(session, bot_id=bot_id)
+    human_items = await human_question_repo.list_by_bot_id(session, bot_id=bot_id)
+    lead_conversation_ids = {item.conversation_id for item in lead_items}
+    human_conversation_ids = {item.conversation_id for item in human_items}
+
+    result: list[ConversationListItem] = []
+    for conversation in conversations:
+        end_user = conversation.end_user
+        result.append(
+            ConversationListItem(
+                id=conversation.id,
+                bot_id=conversation.bot_id,
+                end_user_id=conversation.end_user_id,
+                username=end_user.username if end_user else None,
+                first_name=end_user.first_name if end_user else None,
+                last_name=end_user.last_name if end_user else None,
+                last_message_at=conversation.last_message_at,
+                status=conversation.status,
+                summary=conversation.summary,
+                has_lead=conversation.id in lead_conversation_ids,
+                has_human_question=conversation.id in human_conversation_ids,
+            )
+        )
+    return result
+
+
+@router.get("/conversations/{conversation_id}", response_model=ConversationDetailRead)
+async def get_conversation(conversation_id: int, session: AsyncSession = Depends(get_db_session)) -> ConversationDetailRead:
+    conversation = await _conversation_or_404(session, conversation_id)
+    messages = await message_repo.list_for_conversation(session, conversation_id=conversation.id, limit=1000)
+    end_user = conversation.end_user
+    return ConversationDetailRead(
+        id=conversation.id,
+        bot_id=conversation.bot_id,
+        end_user_id=conversation.end_user_id,
+        username=end_user.username if end_user else None,
+        first_name=end_user.first_name if end_user else None,
+        last_name=end_user.last_name if end_user else None,
+        status=conversation.status,
+        summary=conversation.summary,
+        last_message_at=conversation.last_message_at,
+        messages=[ConversationMessageRead.model_validate(item) for item in messages],
+    )
+
+
+@router.post("/conversations/{conversation_id}/send-message")
+async def send_admin_message(
+    conversation_id: int,
+    payload: AdminSendMessageRequest,
+    session: AsyncSession = Depends(get_db_session),
+) -> dict[str, bool]:
+    conversation = await _conversation_or_404(session, conversation_id)
+    end_user = conversation.end_user
+    if end_user is None:
+        raise HTTPException(status_code=400, detail="Conversation has no end user")
+
+    text = payload.text.strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Message text is empty")
+
+    channel = await bot_channel_repo.get_by_bot_id_and_channel(session, bot_id=conversation.bot_id, channel_type="telegram")
+    if channel is not None and channel.is_active and channel.bot_token_encrypted:
+        token = token_crypto.decrypt(channel.bot_token_encrypted)
+        telegram_client = TelegramClient(bot_token=token)
+    else:
+        telegram_client = TelegramClient()
+
+    try:
+        await telegram_client.send_message(chat_id=int(end_user.external_user_id), text=text)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Telegram send failed: {exc}") from exc
+
+    await message_repo.create(
+        session,
+        conversation_id=conversation.id,
+        bot_id=conversation.bot_id,
+        end_user_id=conversation.end_user_id,
+        sender_type="admin",
+        message_text=text,
+        raw_payload_json={"source": "admin_panel"},
+    )
+    await session.commit()
+    return {"ok": True}

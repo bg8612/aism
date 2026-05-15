@@ -9,12 +9,16 @@ from app.core.config import settings
 from app.db.session import AsyncSessionLocal
 from app.repositories.bot_channel_repository import BotChannelRepository
 from app.repositories.bot_field_repository import BotFieldRepository
+from app.repositories.bot_prompt_repository import BotPromptRepository
 from app.repositories.bot_question_repository import BotQuestionRepository
 from app.repositories.bot_repository import BotRepository
 from app.repositories.bot_settings_repository import BotSettingsRepository
+from app.repositories.conversation_repository import ConversationRepository
 from app.repositories.human_question_repository import HumanQuestionRepository
 from app.repositories.knowledge_repository import KnowledgeRepository
 from app.repositories.lead_repository import LeadRepository
+from app.repositories.message_repository import MessageRepository
+from app.services.telegram_client import TelegramClient
 from app.services.token_crypto_service import TokenCryptoService
 
 router = APIRouter(tags=["admin-ui"])
@@ -23,11 +27,14 @@ templates = Jinja2Templates(directory="app/admin_ui/templates")
 bot_repo = BotRepository()
 bot_channel_repo = BotChannelRepository()
 bot_settings_repo = BotSettingsRepository()
+bot_prompt_repo = BotPromptRepository()
 knowledge_repo = KnowledgeRepository()
 bot_field_repo = BotFieldRepository()
 bot_question_repo = BotQuestionRepository()
 lead_repo = LeadRepository()
 human_question_repo = HumanQuestionRepository()
+conversation_repo = ConversationRepository()
+message_repo = MessageRepository()
 token_crypto = TokenCryptoService()
 
 
@@ -110,6 +117,7 @@ async def bot_new_submit(
                 webhook_secret=None,
                 is_active=True,
             )
+        await bot_prompt_repo.get_or_create_defaults(session, bot_id=bot.id)
         await session.commit()
         return RedirectResponse(url=f"/admin/bots/{bot.id}", status_code=302)
 
@@ -367,3 +375,117 @@ async def human_questions_page(request: Request, bot_id: int):
             return RedirectResponse(url="/admin/bots", status_code=302)
         questions = await human_question_repo.list_by_bot_id(session, bot_id=bot_id)
     return templates.TemplateResponse(request, "human_questions_list.html", {"bot": bot, "questions": questions})
+
+
+@router.get("/admin/bots/{bot_id}/prompts", response_class=HTMLResponse)
+async def prompts_page(request: Request, bot_id: int):
+    if not _is_ui_authorized(request):
+        return _redirect_login()
+    async with await _session() as session:
+        bot = await bot_repo.get_by_id(session, bot_id=bot_id)
+        if bot is None:
+            return RedirectResponse(url="/admin/bots", status_code=302)
+        prompts = await bot_prompt_repo.get_or_create_defaults(session, bot_id=bot_id)
+        await session.commit()
+    return templates.TemplateResponse(request, "prompts_edit.html", {"bot": bot, "prompts": prompts})
+
+
+@router.post("/admin/prompts/{prompt_id}")
+async def prompt_update(
+    request: Request,
+    prompt_id: int,
+    title: str = Form(...),
+    content: str = Form(...),
+    is_active: str = Form(default="off"),
+) -> RedirectResponse:
+    if not _is_ui_authorized(request):
+        return _redirect_login()
+    async with await _session() as session:
+        prompt = await bot_prompt_repo.get_by_id(session, prompt_id=prompt_id)
+        if prompt is None:
+            return RedirectResponse(url="/admin/bots", status_code=302)
+        await bot_prompt_repo.update(
+            session,
+            prompt=prompt,
+            title=title,
+            content=content,
+            is_active=(is_active == "on"),
+        )
+        await session.commit()
+        return RedirectResponse(url=f"/admin/bots/{prompt.bot_id}/prompts", status_code=302)
+
+
+@router.get("/admin/bots/{bot_id}/conversations", response_class=HTMLResponse)
+async def conversations_page(request: Request, bot_id: int):
+    if not _is_ui_authorized(request):
+        return _redirect_login()
+    async with await _session() as session:
+        bot = await bot_repo.get_by_id(session, bot_id=bot_id)
+        if bot is None:
+            return RedirectResponse(url="/admin/bots", status_code=302)
+        conversations = await conversation_repo.list_by_bot_id(session, bot_id=bot_id, limit=500)
+        leads = await lead_repo.list_by_bot_id(session, bot_id=bot_id)
+        human_questions = await human_question_repo.list_by_bot_id(session, bot_id=bot_id)
+        lead_ids = {item.conversation_id for item in leads}
+        human_ids = {item.conversation_id for item in human_questions}
+    return templates.TemplateResponse(
+        request,
+        "conversations_list.html",
+        {"bot": bot, "conversations": conversations, "lead_ids": lead_ids, "human_ids": human_ids},
+    )
+
+
+@router.get("/admin/conversations/{conversation_id}", response_class=HTMLResponse)
+async def conversation_detail_page(request: Request, conversation_id: int):
+    if not _is_ui_authorized(request):
+        return _redirect_login()
+    async with await _session() as session:
+        conversation = await conversation_repo.get_by_id(session, conversation_id=conversation_id)
+        if conversation is None:
+            return RedirectResponse(url="/admin/bots", status_code=302)
+        messages = await message_repo.list_for_conversation(session, conversation_id=conversation_id, limit=1000)
+        bot = await bot_repo.get_by_id(session, bot_id=conversation.bot_id)
+    return templates.TemplateResponse(
+        request,
+        "conversation_detail.html",
+        {"conversation": conversation, "messages": messages, "bot": bot},
+    )
+
+
+@router.post("/admin/conversations/{conversation_id}/send-message")
+async def conversation_send_message(
+    request: Request,
+    conversation_id: int,
+    text: str = Form(...),
+) -> RedirectResponse:
+    if not _is_ui_authorized(request):
+        return _redirect_login()
+    text = text.strip()
+    if not text:
+        return RedirectResponse(url=f"/admin/conversations/{conversation_id}", status_code=302)
+
+    async with await _session() as session:
+        conversation = await conversation_repo.get_by_id(session, conversation_id=conversation_id)
+        if conversation is None or conversation.end_user is None:
+            return RedirectResponse(url="/admin/bots", status_code=302)
+
+        channel = await bot_channel_repo.get_by_bot_id_and_channel(session, bot_id=conversation.bot_id, channel_type="telegram")
+        if channel is not None and channel.is_active and channel.bot_token_encrypted:
+            token = token_crypto.decrypt(channel.bot_token_encrypted)
+            telegram_client = TelegramClient(bot_token=token)
+        else:
+            telegram_client = TelegramClient()
+
+        await telegram_client.send_message(chat_id=int(conversation.end_user.external_user_id), text=text)
+        await message_repo.create(
+            session,
+            conversation_id=conversation.id,
+            bot_id=conversation.bot_id,
+            end_user_id=conversation.end_user_id,
+            sender_type="admin",
+            message_text=text,
+            raw_payload_json={"source": "admin_panel"},
+        )
+        await session.commit()
+
+    return RedirectResponse(url=f"/admin/conversations/{conversation_id}", status_code=302)

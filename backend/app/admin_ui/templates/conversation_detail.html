@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Диалог #{{ conversation.id }}{% endblock %}
+{% block content %}
+<div class="space-y-4">
+  <div class="flex flex-wrap items-center gap-2">
+    <a class="ui-btn-secondary" href="/admin/bots/{{ conversation.bot_id }}/conversations">К списку диалогов</a>
+    <a class="ui-btn-secondary" href="/admin/bots/{{ conversation.bot_id }}">К боту</a>
+  </div>
+
+  <div class="ui-card p-6 space-y-4">
+    <div>
+      <h1 class="text-xl font-semibold text-slate-900">Диалог #{{ conversation.id }}</h1>
+      <p class="text-sm text-slate-500 mt-1">Клиент: {{ conversation.end_user.first_name or "—" }} {{ conversation.end_user.last_name or "" }} (@{{ conversation.end_user.username or "—" }})</p>
+    </div>
+
+    <div class="ui-card overflow-hidden">
+      <table class="ui-table w-full">
+        <thead>
+          <tr>
+            <th>Время</th>
+            <th>Отправитель</th>
+            <th>Сообщение</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for msg in messages %}
+          <tr>
+            <td>{{ msg.created_at }}</td>
+            <td>{{ msg.sender_type }}</td>
+            <td style="white-space: pre-wrap;">{{ msg.message_text }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <form method="post" action="/admin/conversations/{{ conversation.id }}/send-message" class="space-y-3">
+      <label class="ui-label">Сообщение клиенту</label>
+      <textarea class="ui-input min-h-[120px]" name="text" required></textarea>
+      <button type="submit" class="ui-btn-primary">Отправить в Telegram</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

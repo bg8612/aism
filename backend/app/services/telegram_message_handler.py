@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
 
 from sqlalchemy.exc import SQLAlchemyError
@@ -123,6 +124,18 @@ class TelegramMessageHandler:
                 source=source,
             )
             return {"ok": True, "mode": "topic_filter", "reason": filter_result.reason}
+
+        direct_kb_reply = self._try_build_direct_knowledge_reply(user_text=user_text, business_context=business_context)
+        if direct_kb_reply is not None:
+            await self._finalize_reply(
+                telegram_client=telegram_client,
+                chat_id=chat_id,
+                message_id=message_id,
+                dialogue_context=dialogue_context,
+                reply=direct_kb_reply,
+                source=source,
+            )
+            return {"ok": True, "mode": "direct_knowledge"}
 
         waiting_indicator = TelegramWaitingIndicator(telegram_client)
         await waiting_indicator.start(chat_id=chat_id, reply_to_message_id=message_id)
@@ -303,3 +316,18 @@ class TelegramMessageHandler:
     def _is_start_command(self, text: str) -> bool:
         normalized = text.strip().casefold()
         return normalized == "/start" or normalized.startswith("/start@")
+
+    def _try_build_direct_knowledge_reply(self, *, user_text: str, business_context: BusinessContext) -> str | None:
+        if not business_context.bot_settings.answer_only_from_knowledge_base:
+            return None
+
+        normalized = user_text.casefold()
+        tokens = set(re.findall(r"[A-Za-zА-Яа-яЁё0-9]{3,}", normalized))
+        company_markers = {"компания", "компании", "бренд", "фирма", "кто", "вас", "о", "расскажи"}
+        if not (tokens & company_markers or "о компании" in normalized or "о вас" in normalized):
+            return None
+
+        for block in business_context.knowledge_blocks:
+            if block.category in {"company_info", "services", "faq"} and block.content.strip():
+                return block.content.strip()[: settings.bot_reply_max_chars]
+        return None

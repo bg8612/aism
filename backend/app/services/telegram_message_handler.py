@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 from typing import Any
@@ -13,7 +14,7 @@ from app.repositories.bot_channel_repository import BotChannelRepository
 from app.repositories.human_question_repository import HumanQuestionRepository
 from app.services.ai_response_parser import AIManagerResult, AIResponseParser
 from app.services.business_context_service import BusinessContext, BusinessContextService
-from app.services.dialogue_storage_service import DialogueContext, DialogueStorageService
+from app.services.dialogue_storage_service import DialogueContext, DialogueStorageService, ModelContext
 from app.services.lead_processing_service import LeadProcessingService
 from app.services.openrouter_client import OpenRouterClient
 from app.services.telegram_client import TelegramClient
@@ -84,16 +85,37 @@ class TelegramMessageHandler:
                 source=source,
             )
             return {"ok": True, "mode": "start_message"}
+
+        waiting_indicator = TelegramWaitingIndicator(telegram_client)
+        await waiting_indicator.start(chat_id=chat_id, reply_to_message_id=message_id)
+        await asyncio.sleep(max(0.0, settings.telegram_min_reply_delay_sec))
+        if await self._dialogue_storage_service.has_newer_user_message(context=dialogue_context):
+            await waiting_indicator.stop()
+            return {"ok": True, "mode": "coalesced_by_newer_message"}
+
         model_context = await self._dialogue_storage_service.get_model_context(
             context=dialogue_context,
             user_text=user_text,
         )
+        greeting_reply = self._try_build_greeting_reply(user_text=user_text, model_context=model_context)
+        if greeting_reply is not None:
+            await waiting_indicator.stop()
+            await self._finalize_reply(
+                telegram_client=telegram_client,
+                chat_id=chat_id,
+                message_id=message_id,
+                dialogue_context=dialogue_context,
+                reply=greeting_reply,
+                source=source,
+            )
+            return {"ok": True, "mode": "greeting"}
         business_context = await self._business_context_service.get_business_context(
             dialogue_context=dialogue_context,
             user_text=user_text,
         )
 
         if business_context is None:
+            await waiting_indicator.stop()
             reply = await self._generate_legacy_reply(
                 telegram_client=telegram_client,
                 chat_id=chat_id,
@@ -114,6 +136,7 @@ class TelegramMessageHandler:
 
         filter_result = self._topic_filter_service.evaluate(user_text=user_text, business_context=business_context)
         if not filter_result.is_allowed:
+            await waiting_indicator.stop()
             reply = filter_result.reply_if_rejected or business_context.bot_settings.offtopic_message
             await self._finalize_reply(
                 telegram_client=telegram_client,
@@ -127,6 +150,7 @@ class TelegramMessageHandler:
 
         direct_kb_reply = self._try_build_direct_knowledge_reply(user_text=user_text, business_context=business_context)
         if direct_kb_reply is not None:
+            await waiting_indicator.stop()
             await self._finalize_reply(
                 telegram_client=telegram_client,
                 chat_id=chat_id,
@@ -137,8 +161,6 @@ class TelegramMessageHandler:
             )
             return {"ok": True, "mode": "direct_knowledge"}
 
-        waiting_indicator = TelegramWaitingIndicator(telegram_client)
-        await waiting_indicator.start(chat_id=chat_id, reply_to_message_id=message_id)
         try:
             raw_manager_response = await self._openrouter_client.generate_business_manager_response(
                 user_text=user_text,
@@ -316,6 +338,16 @@ class TelegramMessageHandler:
     def _is_start_command(self, text: str) -> bool:
         normalized = text.strip().casefold()
         return normalized == "/start" or normalized.startswith("/start@")
+
+    def _try_build_greeting_reply(self, *, user_text: str, model_context: ModelContext) -> str | None:
+        normalized = " ".join(user_text.casefold().split())
+        if normalized not in {"привет", "здравствуйте", "добрый день", "добрый вечер"}:
+            return None
+
+        had_assistant_reply = any(msg.get("role") == "assistant" for msg in model_context.conversation_messages)
+        if had_assistant_reply:
+            return "Да, чем могу вам помочь?"
+        return "Здравствуйте! Рад помочь. Подскажите, что вас интересует: печи, цены, установка или подбор?"
 
     def _try_build_direct_knowledge_reply(self, *, user_text: str, business_context: BusinessContext) -> str | None:
         if not business_context.bot_settings.answer_only_from_knowledge_base:

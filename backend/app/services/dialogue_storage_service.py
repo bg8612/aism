@@ -24,6 +24,7 @@ class DialogueContext:
     bot_id: int
     end_user_id: int
     conversation_id: int
+    latest_user_message_id: int | None = None
     channel: str = "telegram"
 
 
@@ -134,7 +135,7 @@ class DialogueStorageService:
                     end_user_id=end_user.id,
                     channel="telegram",
                 )
-                await self._message_repository.create(
+                created_message = await self._message_repository.create(
                     session,
                     conversation_id=conversation.id,
                     bot_id=bot.id,
@@ -150,6 +151,7 @@ class DialogueStorageService:
                     bot_id=bot.id,
                     end_user_id=end_user.id,
                     conversation_id=conversation.id,
+                    latest_user_message_id=created_message.id,
                     channel="telegram",
                 )
             except SQLAlchemyError:
@@ -192,6 +194,27 @@ class DialogueStorageService:
             except Exception:
                 await session.rollback()
                 logger.exception("Unexpected error while saving bot reply")
+
+    async def has_newer_user_message(
+        self,
+        *,
+        context: DialogueContext | None,
+    ) -> bool:
+        if context is None or context.latest_user_message_id is None:
+            return False
+
+        async with self._session_factory() as session:
+            try:
+                return await self._message_repository.has_newer_user_message(
+                    session,
+                    conversation_id=context.conversation_id,
+                    after_message_id=context.latest_user_message_id,
+                )
+            except SQLAlchemyError:
+                logger.exception("Database error while checking newer user messages")
+            except Exception:
+                logger.exception("Unexpected error while checking newer user messages")
+        return False
 
     def _extract_memory_notes(self, stored_messages: list[Any]) -> list[str]:
         notes: list[str] = []

@@ -49,3 +49,20 @@ class MessageRepository:
         messages = list(result.all())
         messages.reverse()
         return messages
+
+    async def has_newer_user_message(
+        self,
+        session: AsyncSession,
+        *,
+        conversation_id: int,
+        after_message_id: int,
+    ) -> bool:
+        statement = (
+            select(Message.id)
+            .where(Message.conversation_id == conversation_id)
+            .where(Message.sender_type == "user")
+            .where(Message.id > after_message_id)
+            .limit(1)
+        )
+        found = await session.scalar(statement)
+        return found is not None

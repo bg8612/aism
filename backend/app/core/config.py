@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     telegram_mode: str = "polling"
     telegram_poll_timeout_sec: int = 30
     telegram_poll_limit: int = 20
+    telegram_min_reply_delay_sec: float = 6.0
     telegram_waiting_indicator_delay_sec: float = 0.8
     telegram_waiting_indicator_frame_sec: float = 0.9
     telegram_update_dedupe_ttl_sec: int = Field(

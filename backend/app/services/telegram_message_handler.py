@@ -24,6 +24,11 @@ logger = logging.getLogger(__name__)
 
 GENERIC_TEMPORARY_ERROR = "Сервис временно недоступен. Попробуйте еще раз через минуту."
 GENERIC_EMPTY_ERROR = "Сервис временно недоступен. Попробуйте еще раз позже."
+WAITING_PLACEHOLDER_PREFIXES = (
+    "думаю над ответом",
+    "сейчас думаю",
+    "подождите",
+)
 
 
 class TelegramMessageHandler:
@@ -223,7 +228,10 @@ class TelegramMessageHandler:
         reply: str,
         source: str,
     ) -> None:
-        safe_reply = reply.strip()[: settings.bot_reply_max_chars] or GENERIC_EMPTY_ERROR
+        safe_reply = reply.strip()
+        if self._looks_like_waiting_placeholder(safe_reply):
+            safe_reply = GENERIC_EMPTY_ERROR
+        safe_reply = safe_reply[: settings.bot_reply_max_chars] or GENERIC_EMPTY_ERROR
         await self._dialogue_storage_service.save_bot_reply(
             context=dialogue_context,
             reply_text=safe_reply,
@@ -277,3 +285,7 @@ class TelegramMessageHandler:
             normalized = text.strip()
             return chat_id, message_id if isinstance(message_id, int) else None, normalized or None
         return None, None, None
+
+    def _looks_like_waiting_placeholder(self, text: str) -> bool:
+        normalized = " ".join(text.casefold().split())
+        return any(normalized.startswith(prefix) for prefix in WAITING_PLACEHOLDER_PREFIXES)
